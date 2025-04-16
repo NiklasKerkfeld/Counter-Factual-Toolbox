@@ -12,20 +12,25 @@ from utils import symetric_color_mapping
 
 
 class Loss(nn.Module):
-    def __init__(self, loss_fn, beta: float = .5, gamma: float = .5):
+    def __init__(self, beta: float = .0, gamma: float = 1.0):
         super().__init__()
-        self.loss_fn = loss_fn
+        self.loss_fn = nn.CrossEntropyLoss()
         self.beta = beta
         self.gamma = gamma
         self.relu = nn.ReLU()
 
-        self.grad_x = torch.tensor([[[[1., 0., -1.],
-                                      [2., 0., -2.],
-                                      [1., 0., -1.]]]], requires_grad=False)
+        # self.grad_x = torch.tensor([[[[1., 0., -1.],
+        #                               [2., 0., -2.],
+        #                               [1., 0., -1.]]]], requires_grad=False)
 
-        self.grad_y = torch.tensor([[[[1., 2., 1.],
-                                      [0., 0., 0.],
-                                      [-1., -2., -1.]]]], requires_grad=False)
+        # self.grad_y = torch.tensor([[[[1., 2., 1.],
+        #                               [0., 0., 0.],
+        #                               [-1., -2., -1.]]]], requires_grad=False)
+
+        self.grad_x = torch.tensor([[[[1., -1.],
+                                      [1., -1.]]]], requires_grad=False)
+        self.grad_y = torch.tensor([[[[1., 1.],
+                                      [-1., -1.]]]], requires_grad=False)
 
     def to(self, device: torch.device):
         self.grad_x = self.grad_x.to(device)
@@ -60,6 +65,7 @@ class ModelWrapper(nn.Module):
         for param in self.model.parameters():
             param.requires_grad = False
 
+        self.model.eval()
         self.change = nn.Parameter(torch.zeros(input_shape))
 
     def forward(self, x):
@@ -77,7 +83,6 @@ class ModelWrapper(nn.Module):
 
 class Framework:
     def __init__(self, model: nn.Module,
-                 loss_fn: nn.Module,
                  input_shape: Tuple[int, int, int],
                  device: torch.device,
                  name: str = "framework",
@@ -86,7 +91,7 @@ class Framework:
 
         self.model = ModelWrapper(model, input_shape)
 
-        self.loss_fn = Loss(loss_fn)
+        self.loss_fn = Loss()
 
         self.device = device
         self.name = name
@@ -94,7 +99,7 @@ class Framework:
         self.step = 0
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 5000, gamma=0.5)
+        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 10_000, gamma=0.5)
 
         # setup tensorboard
         train_log_dir = f"logs/runs/{self.name}"
@@ -136,7 +141,8 @@ class Framework:
                     self.log_image("change", symetric_color_mapping(change))
                     self.log_image("prediction", self.model.predict(image + change))
 
-            bar.set_description(f"loss: {round(loss, 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 6)}")
+            bar.set_description(
+                f"loss: {round(loss, 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 6)}")
 
             del loss
 
@@ -185,9 +191,9 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}\n")
 
-    framework = Framework(model, nn.CrossEntropyLoss(), (1, 64, 64), device, name="framework12")
+    framework = Framework(model, (1, 128, 128), device, name="framework19")
 
-    dataset = DummyDataset(100, (64, 64), artefact=True, reduction=True)
+    dataset = DummyDataset(100, (128, 128), artefact=True, reduction=True)
     image, mask = dataset[0]
 
     framework.process(image[None], mask[None])
