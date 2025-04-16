@@ -27,6 +27,7 @@ class Trainer:
         self.name = name
 
     def train(self, epochs: int = 10):
+        self.model.to(self.device)
 
         bar = trange(epochs)
         for _ in bar:
@@ -76,7 +77,6 @@ class Trainer:
         return torch.mean(torch.tensor(losses)).item()
 
 
-
 def main():
     torch.manual_seed(42)
     model = SimpleUNet(in_channels=1)
@@ -96,7 +96,7 @@ def main():
     trainer.train(epochs=10)
 
     example, target = valid_dataset[0]
-    pred = model(example[None]).detach()[:, 1]
+    pred = model(example[None].to(device)).detach().cpu()[:, 1]
 
     plt.title("Image")
     plt.imshow(example[0], cmap='gray')

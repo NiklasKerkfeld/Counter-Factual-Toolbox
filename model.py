@@ -1,6 +1,7 @@
+import os
+
 import torch
 from torch import nn
-from torch.nn import MaxPool2d
 
 
 class Block(nn.Module):
@@ -60,7 +61,14 @@ class SimpleUNet(nn.Module):
 
         return self.head(u4)
 
+    def predict(self, image):
+        with torch.no_grad():
+            pred = torch.nn.functional.softmax(self(image), dim=1)
+
+        return pred[:, 0]
+
     def save(self):
+        os.makedirs("saved_models", exist_ok=True)
         torch.save(self.state_dict(), "saved_models/SimpleUNet.pt")
 
     def load(self):

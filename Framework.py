@@ -3,13 +3,13 @@ from typing import Tuple, List
 import torch
 from torch.func import grad_and_value
 from torch import nn
-from tqdm import trange
+from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
-import matplotlib as mpl
-from matplotlib import pyplot as plt
+from tqdm import trange
 
 from dataset import DummyDataset
 from model import SimpleUNet
+from utils import symetric_color_mapping
 
 
 class Loss(nn.Module):
@@ -27,6 +27,10 @@ class Loss(nn.Module):
         self.grad_y = torch.tensor([[[[1., 2., 1.],
                                        [0., 0., 0.],
                                        [-1., -2., -1.]]]], requires_grad=False)
+
+    def to(self, device: torch.device):
+        self.grad_x = self.grad_x.to(device)
+        self.grad_y = self.grad_y.to(device)
 
     def magnitude(self, change):
         dx = torch.nn.functional.conv2d(change[None], self.grad_x)
@@ -54,9 +58,12 @@ class Framework:
     def __init__(self, model: nn.Module,
                  optimizer: torch.optim.Optimizer,
                  loss_fn: nn.Module,
-                 input_shape: Tuple[int, int],
+                 input_shape: Tuple[int, int, int],
+                 device: torch.device,
+                 name: str = "framework",
                  lr: float = 0.1,
-                 decay: float = 1.0):
+                 decay: float = 1.0,
+                 ):
 
         self.model = model
         self.model.requires_grad = False
@@ -68,96 +75,89 @@ class Framework:
         self.lr = lr
         self.decay = decay
 
+        self.device = device
+        self.name = name
+        self.step = 0
 
-    def process(self, image: torch.Tensor, mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor,torch.Tensor, List[float]]:
-
-        with torch.no_grad():
-            pred_before = torch.nn.functional.softmax(self.model(image), dim=1)
-
+        # set up grad function
         def func(change, image, mask):
             x = image + change
             pred = self.model(x)
             loss = self.loss_fn(pred, x, mask, change)
             return loss
 
-        grad_func = grad_and_value(func)
+        self.grad_func = grad_and_value(func)
 
-        losses = []
-        bar = trange(10_000)
-        for _ in bar:
-            grad, value = grad_func(self.change, image=image, mask=mask)
+        # setup tensorboard
+        train_log_dir = f"logs/runs/{self.name}"
+        print(f"{train_log_dir=}")
+        self.writer = SummaryWriter(train_log_dir)  # type: ignore
+
+    def process(self, image: torch.Tensor, mask: torch.Tensor) -> None:
+        self.model.to(self.device)
+        image = image.to(self.device)
+        mask = mask.to(self.device)
+        self.change = self.change.to(self.device)
+        self.loss_fn.to(self.device)
+
+        self.log_image("image", image[0])
+        self.log_image("mask", mask)
+        self.log_image("prediction", self.model.predict(image + self.change))
+
+        bar = trange(20_000)
+        for self.step in bar:
+            grad, value = self.grad_func(self.change, image=image, mask=mask)
 
             self.change -= self.lr * grad.detach()
-            if len(losses) == 5_000:
+            if self.step != 0 and self.step % 5_000:
                 self.lr *= 0.1
 
+            if self.step % 100 == 0:
+                self.log_value("loss", value)
+                self.log_value("lr", self.lr)
+                if self.step % 1_000 == 0:
+                    self.log_image("updated_image", (image + self.change)[0])
+                    self.log_image("change", symetric_color_mapping(self.change))
+                    self.log_image("prediction", self.model.predict(image + self.change))
+
             bar.set_description(f"loss: {round(value.detach().item(), 6)}, lr: {round(self.lr, 6)}")
-            losses.append(value.detach().item())
 
             del grad, value
 
-        with torch.no_grad():
-            pred_after = torch.nn.functional.softmax(self.model(image + self.change), dim=1)
+    def log_image(self, name: str, image: torch.Tensor) -> None:
+        """
+        Logs given images under the given dataset label.
 
-        return self.change.detach(), pred_before[0, 1], pred_after[0, 1], losses
+        Args:
+            name: name or title for image on tensorboard
+            image: torch tensor with image data
+        """
+        # log in tensorboard
+        self.writer.add_image(
+                f"{name}",
+                image[:, ::2, ::2],    # type: ignore
+                global_step=self.step
+            )  # type: ignore
 
+        self.writer.flush()  # type: ignore
 
-def plot(image, mask, change, pred_before, pred_after, loss_curve):
-    centered_norm = mpl.colors.CenteredNorm()
-    # norm = mpl.colors.Normalize(vmin=0.0, vmax=1.0, clip=False)
+    def log_value(self, name: str, value: float) -> None:
+        """
+        Logs the loss values to tensorboard.
 
-    fig = plt.figure(figsize=(18, 10))
-    gs = fig.add_gridspec(3, 5, width_ratios=[1, 1, 0.05, 1, 0.05])
+        Args:
+            name: name or title for value on tensorboard
+            value: loss values (values)
 
-    axs = [[None for _ in range(5)] for _ in range(3)]
+        """
+        # logging
+        self.writer.add_scalar(
+            f"{name}",
+                value,
+                global_step=self.step
+            )  # type: ignore
 
-    axs[0][0] = fig.add_subplot(gs[0, 0])
-    axs[0][0].set_title("image")
-    axs[0][0].imshow(image[0], cmap='gray')
-    axs[0][0].axis('off')
-
-    axs[0][1] = fig.add_subplot(gs[0, 1])
-    axs[0][1].set_title("mask")
-    axs[0][1].imshow(mask, cmap='gray')
-    axs[0][1].axis('off')
-
-    axs[0][3] = fig.add_subplot(gs[0, 3])
-    axs[0][3].set_title("pred before")
-    axs[0][3].imshow(pred_before, cmap='gray')
-    axs[0][3].axis('off')
-
-    axs[1][0] = fig.add_subplot(gs[1, 0])
-    axs[1][0].set_title("changed image")
-    axs[1][0].imshow(image[0] + change[0], cmap='gray')
-    axs[1][0].axis('off')
-
-    axs[1][1] = fig.add_subplot(gs[1, 1])
-    axs[1][1].set_title("change")
-    im_change = axs[1][1].imshow(change[0], norm=centered_norm, cmap='bwr')
-    axs[1][1].axis('off')
-    fig.colorbar(im_change, cax=fig.add_subplot(gs[1, 2]))
-
-    axs[1][3] = fig.add_subplot(gs[1, 3])
-    axs[1][3].set_title("pred after")
-    axs[1][3].imshow(pred_after, cmap='gray')
-    axs[1][3].axis('off')
-
-    # Create one large subplot spanning (2, 0) and (2, 1)
-    ax_loss = fig.add_subplot(gs[2, 0:3])
-    ax_loss.set_title("Loss Curve")
-    ax_loss.plot(loss_curve, color='blue')
-    ax_loss.set_xlabel("Step")
-    ax_loss.set_ylabel("Loss")
-
-    axs[2][3] = fig.add_subplot(gs[2, 3])
-    axs[2][3].set_title("difference pred")
-    im_diff = axs[2][3].imshow(pred_after - pred_before, norm=centered_norm, cmap='bwr')
-    axs[2][3].axis('off')
-    fig.colorbar(im_diff, ax=axs[2][3])
-
-    plt.tight_layout()
-    plt.show()
-
+        self.writer.flush()  # type: ignore
 
 
 def main():
@@ -168,18 +168,15 @@ def main():
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-    framework = Framework(model, optimizer, nn.CrossEntropyLoss(), (1, 64, 64))
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f"device: {device}\n")
+
+    framework = Framework(model, optimizer, nn.CrossEntropyLoss(), (1, 64, 64), device)
 
     dataset = DummyDataset(100, (64, 64), artefact=True)
     image, mask = dataset[0]
 
-    change, pred_before, pred_after, losses = framework.process(image[None], mask[None])
-
-    print("change: ", change.max(), change.min(), change.mean(), change.std(), change.median())
-    new_image = image + change
-    print("new_image: ", new_image.min(), new_image.max(), new_image.mean(), new_image.std(), new_image.median())
-
-    plot(image, mask, change, pred_before, pred_after, losses)
+    framework.process(image[None], mask[None])
 
 
 if __name__ == '__main__':
