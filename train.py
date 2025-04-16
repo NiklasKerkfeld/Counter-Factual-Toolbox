@@ -83,8 +83,8 @@ def main():
     torch.manual_seed(42)
     model = SimpleUNet(in_channels=1)
 
-    train_dataset = DummyDataset(100, (64, 64), artefact=False)
-    valid_dataset = DummyDataset(30, (64, 64), artefact=False)
+    train_dataset = DummyDataset(100, (128, 128), artefact=False)
+    valid_dataset = DummyDataset(30, (128, 128), artefact=False)
     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=8, shuffle=True)
 
