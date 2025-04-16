@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -98,14 +100,16 @@ def main():
     example, target = valid_dataset[0]
     pred = model(example[None].to(device)).detach().cpu()[:, 1]
 
+    os.makedirs("results", exist_ok=True)
+
     plt.title("Image")
     plt.imshow(example[0], cmap='gray')
-    plt.show()
+    plt.savefig("results/image")
 
     plt.title("Prediction")
     plt.imshow(pred[0], cmap='gray')
-    plt.show()
+    plt.savefig("results/prediction")
 
-   
+
 if __name__ == '__main__':
     main()

@@ -1,7 +1,6 @@
-from typing import Tuple, List
+from typing import Tuple
 
 import torch
-from torch.func import grad_and_value
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
@@ -13,7 +12,7 @@ from utils import symetric_color_mapping
 
 
 class Loss(nn.Module):
-    def __init__(self, loss_fn, beta: float = 1., gamma: float = 1.):
+    def __init__(self, loss_fn, beta: float = .5, gamma: float = .5):
         super().__init__()
         self.loss_fn = loss_fn
         self.beta = beta
@@ -21,12 +20,12 @@ class Loss(nn.Module):
         self.relu = nn.ReLU()
 
         self.grad_x = torch.tensor([[[[1., 0., -1.],
-                                       [2., 0., -2.],
-                                       [1., 0., -1.]]]], requires_grad=False)
+                                      [2., 0., -2.],
+                                      [1., 0., -1.]]]], requires_grad=False)
 
         self.grad_y = torch.tensor([[[[1., 2., 1.],
-                                       [0., 0., 0.],
-                                       [-1., -2., -1.]]]], requires_grad=False)
+                                      [0., 0., 0.],
+                                      [-1., -2., -1.]]]], requires_grad=False)
 
     def to(self, device: torch.device):
         self.grad_x = self.grad_x.to(device)
@@ -54,39 +53,48 @@ class Loss(nn.Module):
         return loss + self.beta * reg + over + under + self.gamma * magnitude
 
 
+class ModelWrapper(nn.Module):
+    def __init__(self, model: nn.Module, input_shape: Tuple[int, int, int]):
+        super().__init__()
+        self.model = model
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        self.change = nn.Parameter(torch.zeros(input_shape))
+
+    def forward(self, x):
+        model_input = x + self.change
+        x = self.model(model_input)
+        return x, model_input
+
+    def predict(self, image):
+        with torch.no_grad():
+            pred, _ = self(image)
+            pred = torch.nn.functional.softmax(pred, dim=1)
+
+        return pred[:, 0]
+
+
 class Framework:
     def __init__(self, model: nn.Module,
-                 optimizer: torch.optim.Optimizer,
                  loss_fn: nn.Module,
                  input_shape: Tuple[int, int, int],
                  device: torch.device,
                  name: str = "framework",
-                 lr: float = 0.1,
-                 decay: float = 1.0,
+                 lr: float = 1e-4,
                  ):
 
-        self.model = model
-        self.model.requires_grad = False
+        self.model = ModelWrapper(model, input_shape)
 
-        self.optimizer = optimizer
         self.loss_fn = Loss(loss_fn)
-
-        self.change = torch.zeros(input_shape)
-        self.lr = lr
-        self.decay = decay
 
         self.device = device
         self.name = name
+
         self.step = 0
 
-        # set up grad function
-        def func(change, image, mask):
-            x = image + change
-            pred = self.model(x)
-            loss = self.loss_fn(pred, x, mask, change)
-            return loss
-
-        self.grad_func = grad_and_value(func)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 5000, gamma=0.5)
 
         # setup tensorboard
         train_log_dir = f"logs/runs/{self.name}"
@@ -94,35 +102,43 @@ class Framework:
         self.writer = SummaryWriter(train_log_dir)  # type: ignore
 
     def process(self, image: torch.Tensor, mask: torch.Tensor) -> None:
+        self.model.eval()
+
         self.model.to(self.device)
-        image = image.to(self.device)
-        mask = mask.to(self.device)
-        self.change = self.change.to(self.device)
         self.loss_fn.to(self.device)
 
+        image = image.to(self.device)
+        mask = mask.to(self.device)
+
+        # logging
         self.log_image("image", image[0])
         self.log_image("mask", mask)
-        self.log_image("prediction", self.model.predict(image + self.change))
+        self.log_image("prediction", self.model.predict(image + self.model.change))
 
         bar = trange(20_000)
         for self.step in bar:
-            grad, value = self.grad_func(self.change, image=image, mask=mask)
+            self.optimizer.zero_grad()
+            pred, model_input = self.model(image)
+            loss = self.loss_fn(pred, model_input, mask, self.model.change)
+            loss.backward()
 
-            self.change -= self.lr * grad.detach()
-            if self.step != 0 and self.step % 5_000:
-                self.lr *= 0.1
+            self.optimizer.step()
+            self.lr_scheduler.step()
+            loss = loss.detach().cpu().item()
 
+            # logging
             if self.step % 100 == 0:
-                self.log_value("loss", value)
-                self.log_value("lr", self.lr)
+                self.log_value("loss", loss)
+                self.log_value("lr", self.optimizer.param_groups[0]['lr'])
                 if self.step % 1_000 == 0:
-                    self.log_image("updated_image", (image + self.change)[0])
-                    self.log_image("change", symetric_color_mapping(self.change))
-                    self.log_image("prediction", self.model.predict(image + self.change))
+                    change = self.model.change.detach()
+                    self.log_image("updated_image", (image + change)[0])
+                    self.log_image("change", symetric_color_mapping(change))
+                    self.log_image("prediction", self.model.predict(image + change))
 
-            bar.set_description(f"loss: {round(value.detach().item(), 6)}, lr: {round(self.lr, 6)}")
+            bar.set_description(f"loss: {round(loss, 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 6)}")
 
-            del grad, value
+            del loss
 
     def log_image(self, name: str, image: torch.Tensor) -> None:
         """
@@ -134,10 +150,10 @@ class Framework:
         """
         # log in tensorboard
         self.writer.add_image(
-                f"{name}",
-                image[:, ::2, ::2],    # type: ignore
-                global_step=self.step
-            )  # type: ignore
+            f"{name}",
+            image[:, ::2, ::2],  # type: ignore
+            global_step=self.step
+        )  # type: ignore
 
         self.writer.flush()  # type: ignore
 
@@ -153,9 +169,9 @@ class Framework:
         # logging
         self.writer.add_scalar(
             f"{name}",
-                value,
-                global_step=self.step
-            )  # type: ignore
+            value,
+            global_step=self.step
+        )  # type: ignore
 
         self.writer.flush()  # type: ignore
 
@@ -166,14 +182,12 @@ def main():
     model = SimpleUNet(in_channels=1)
     model.load()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}\n")
 
-    framework = Framework(model, optimizer, nn.CrossEntropyLoss(), (1, 64, 64), device)
+    framework = Framework(model, nn.CrossEntropyLoss(), (1, 64, 64), device, name="framework12")
 
-    dataset = DummyDataset(100, (64, 64), artefact=True)
+    dataset = DummyDataset(100, (64, 64), artefact=True, reduction=True)
     image, mask = dataset[0]
 
     framework.process(image[None], mask[None])
