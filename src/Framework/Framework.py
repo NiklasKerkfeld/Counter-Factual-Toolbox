@@ -6,56 +6,8 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
 from tqdm import trange
 
-from dataset import DummyDataset
-from model import SimpleUNet
-from utils import symetric_color_mapping
-
-
-class Loss(nn.Module):
-    def __init__(self, beta: float = .0, gamma: float = 1.0):
-        super().__init__()
-        self.loss_fn = nn.CrossEntropyLoss()
-        self.beta = beta
-        self.gamma = gamma
-        self.relu = nn.ReLU()
-
-        # self.grad_x = torch.tensor([[[[1., 0., -1.],
-        #                               [2., 0., -2.],
-        #                               [1., 0., -1.]]]], requires_grad=False)
-
-        # self.grad_y = torch.tensor([[[[1., 2., 1.],
-        #                               [0., 0., 0.],
-        #                               [-1., -2., -1.]]]], requires_grad=False)
-
-        self.grad_x = torch.tensor([[[[1., -1.],
-                                      [1., -1.]]]], requires_grad=False)
-        self.grad_y = torch.tensor([[[[1., 1.],
-                                      [-1., -1.]]]], requires_grad=False)
-
-    def to(self, device: torch.device):
-        self.grad_x = self.grad_x.to(device)
-        self.grad_y = self.grad_y.to(device)
-
-    def magnitude(self, change):
-        dx = torch.nn.functional.conv2d(change[None], self.grad_x)
-        dy = torch.nn.functional.conv2d(change[None], self.grad_y)
-        return torch.mean((torch.abs(dx) + torch.abs(dy)))
-
-    def forward(self, pred, input, target, change):
-        # normal loss
-        loss = self.loss_fn(pred, target)
-
-        # regularize to achieve small changes
-        reg = torch.mean(torch.abs(change))
-
-        # penalize values out of image range
-        over = torch.sum(self.relu(input - 1))
-        under = torch.sum(self.relu(-input))
-
-        # penalize different neighbors
-        magnitude = self.magnitude(change)
-
-        return loss + self.beta * reg + over + under + self.gamma * magnitude
+from src.Framework.Loss import Loss
+from src.Framework.utils import normalize, change_visualization
 
 
 class ModelWrapper(nn.Module):
@@ -78,7 +30,7 @@ class ModelWrapper(nn.Module):
             pred, _ = self(image)
             pred = torch.nn.functional.softmax(pred, dim=1)
 
-        return pred[:, 0]
+        return pred[:, 1]
 
 
 class Framework:
@@ -99,10 +51,10 @@ class Framework:
         self.step = 0
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 10_000, gamma=0.5)
+        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1_000, gamma=0.5)
 
         # setup tensorboard
-        train_log_dir = f"logs/runs/{self.name}"
+        train_log_dir = f"logs/Framework/runs/{self.name}"
         print(f"{train_log_dir=}")
         self.writer = SummaryWriter(train_log_dir)  # type: ignore
 
@@ -112,18 +64,20 @@ class Framework:
         self.model.to(self.device)
         self.loss_fn.to(self.device)
 
-        image = image.to(self.device)
+        image_gpu = image.to(self.device)
         mask = mask.to(self.device)
 
         # logging
-        self.log_image("image", image[0])
-        self.log_image("mask", mask)
-        self.log_image("prediction", self.model.predict(image + self.model.change))
+        self.log_image("image/t2w", normalize(image_gpu[0, 0, None]))
+        self.log_image("image/hbv", normalize(image_gpu[0, 1, None]))
+        self.log_image("image/adc", normalize(image_gpu[0, 2, None]))
+        self.log_image("target/mask", mask)
+        self.log_image("target/init_prediction", self.model.predict(image_gpu + self.model.change))
 
-        bar = trange(20_000)
+        bar = trange(1, 5_001)
         for self.step in bar:
             self.optimizer.zero_grad()
-            pred, model_input = self.model(image)
+            pred, model_input = self.model(image_gpu)
             loss = self.loss_fn(pred, model_input, mask, self.model.change)
             loss.backward()
 
@@ -137,9 +91,11 @@ class Framework:
                 self.log_value("lr", self.optimizer.param_groups[0]['lr'])
                 if self.step % 1_000 == 0:
                     change = self.model.change.detach()
-                    self.log_image("updated_image", (image + change)[0])
-                    self.log_image("change", symetric_color_mapping(change))
-                    self.log_image("prediction", self.model.predict(image + change))
+                    self.log_image("update/t2w", (image_gpu + change)[0, 0, None])
+                    self.log_image("update/hbv", (image_gpu + change)[0, 1, None])
+                    self.log_image("update/adc", (image_gpu + change)[0, 2, None])
+                    self.log_image("update/change", change_visualization(change, normalize(image[0, 0])))
+                    self.log_image("target/prediction", self.model.predict(image_gpu + change))
 
             bar.set_description(
                 f"loss: {round(loss, 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 6)}")
@@ -157,7 +113,7 @@ class Framework:
         # log in tensorboard
         self.writer.add_image(
             f"{name}",
-            image[:, ::2, ::2],  # type: ignore
+            image,  # type: ignore
             global_step=self.step
         )  # type: ignore
 
@@ -180,24 +136,3 @@ class Framework:
         )  # type: ignore
 
         self.writer.flush()  # type: ignore
-
-
-def main():
-    torch.manual_seed(42)
-
-    model = SimpleUNet(in_channels=1)
-    model.load()
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"device: {device}\n")
-
-    framework = Framework(model, (1, 128, 128), device, name="framework19")
-
-    dataset = DummyDataset(100, (128, 128), artefact=True, reduction=True)
-    image, mask = dataset[0]
-
-    framework.process(image[None], mask[None])
-
-
-if __name__ == '__main__':
-    main()

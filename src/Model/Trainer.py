@@ -1,13 +1,13 @@
-import os
+"""Trainer class to train an Unet segmentation model."""
+
+from typing import Optional
 
 import torch
-from torch import nn, optim
-from torch.utils.data import DataLoader
-from tqdm import trange
-import matplotlib.pyplot as plt
+from torch import nn
+from torch.optim import Optimizer
+from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
-from dataset import DummyDataset
-from model import SimpleUNet
+from tqdm import tqdm
 
 
 class Trainer:
@@ -15,10 +15,10 @@ class Trainer:
                  model: nn.Module,
                  trainloader: torch.utils.data.DataLoader,
                  testloader: torch.utils.data.DataLoader,
-                 optimizer: optim.Optimizer,
+                 optimizer: Optimizer,
                  loss_fn: nn.Module,
                  device: torch.device,
-                 name: str = 'model'):
+                 name: str = 'Model'):
 
         self.model = model
         self.trainloader = trainloader
@@ -28,15 +28,23 @@ class Trainer:
         self.device = device
         self.name = name
 
+        self.step = 0
+
+        # setup tensorboard
+        train_log_dir = f"logs/Trainer/runs/{self.name}"
+        print(f"{train_log_dir=}")
+        self.writer = SummaryWriter(train_log_dir)  # type: ignore
+
     def train(self, epochs: int = 10):
         self.model.to(self.device)
 
-        bar = trange(epochs)
-        for _ in bar:
+        for e in range(1, epochs + 1):
+            print(f"start epoch {e}")
             train_loss = self.train_epoch()
-            valid_loss = self.valid()
+            self.log_value('train/loss', train_loss, e)
 
-            bar.set_description(f"training loss: {train_loss}, validation loss: {valid_loss}")
+            valid_loss = self.valid()
+            self.log_value('valid/loss', valid_loss, e)
 
         self.model.save()
 
@@ -45,7 +53,9 @@ class Trainer:
 
         losses = []
 
-        for images, masks in self.trainloader:
+        for images, masks in (bar := tqdm(self.trainloader, total=len(self.trainloader))):
+            self.step += 1
+
             images = images.to(self.device)
             masks = masks.to(self.device)
 
@@ -56,6 +66,8 @@ class Trainer:
             self.optimizer.step()
 
             losses.append(loss.item())
+            self.log_value('train/step_loss', loss.item())
+            bar.set_description(f"loss: {loss.item()}")
 
             del images, masks, loss
 
@@ -78,38 +90,20 @@ class Trainer:
 
         return torch.mean(torch.tensor(losses)).item()
 
+    def log_value(self, name: str, value: float, step: Optional[int] = None) -> None:
+        """
+        Logs the loss values to tensorboard.
 
-def main():
-    torch.manual_seed(42)
-    model = SimpleUNet(in_channels=1)
+        Args:
+            name: name or title for value on tensorboard
+            value: loss values (values)
 
-    train_dataset = DummyDataset(100, (128, 128), artefact=False)
-    valid_dataset = DummyDataset(30, (128, 128), artefact=False)
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=8, shuffle=True)
+        """
+        # logging
+        self.writer.add_scalar(
+            f"{name}",
+            value,
+            global_step=step if step is not None else self.step
+        )  # type: ignore
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    loss_fn = nn.CrossEntropyLoss()
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"device: {device}\n")
-
-    trainer = Trainer(model, train_loader, valid_loader, optimizer, loss_fn, device)
-    trainer.train(epochs=10)
-
-    example, target = valid_dataset[0]
-    pred = model(example[None].to(device)).detach().cpu()[:, 1]
-
-    os.makedirs("results", exist_ok=True)
-
-    plt.title("Image")
-    plt.imshow(example[0], cmap='gray')
-    plt.savefig("results/image")
-
-    plt.title("Prediction")
-    plt.imshow(pred[0], cmap='gray')
-    plt.savefig("results/prediction")
-
-
-if __name__ == '__main__':
-    main()
+        self.writer.flush()  # type: ignore

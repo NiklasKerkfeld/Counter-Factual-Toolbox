@@ -1,41 +1,10 @@
 import os
 
 import matplotlib as mpl
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
-from io import BytesIO
-from PIL import Image
 
 
-def symetric_color_mapping(tensor: torch.Tensor, figsize=(16, 16)) -> torch.Tensor:
-    """
-    Converts a (N, N) tensor to a (3, H, W) image tensor with a colorbar using bwr colormap.
-    Args:
-        tensor (torch.Tensor): 2D tensor of shape (N, N)
-        figsize (tuple): Size of the matplotlib figure
-    Returns:
-        torch.Tensor: Image tensor with shape (3, H, W), values in [0, 1]
-    """
-    array = tensor[0].cpu().numpy()
 
-    # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=figsize)
-    cax = ax.imshow(array, cmap='bwr', vmin=-1, vmax=1)
-    cbar = fig.colorbar(cax, ax=ax, fraction=0.046, pad=0.04)
-    cbar.ax.tick_params(labelsize=20)
-    ax.axis('off')
-
-    # Save plot to buffer
-    buf = BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.05)
-    plt.close(fig)
-    buf.seek(0)
-
-    # Load image from buffer and convert to tensor
-    image = Image.open(buf).convert('RGB')
-    img_tensor = torch.from_numpy(np.array(image)).permute(2, 0, 1).float() / 255.0  # (3, H, W)
-    return img_tensor
 
 
 def plot(image, mask, change, pred_before, pred_after, loss_curve):
