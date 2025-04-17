@@ -51,7 +51,7 @@ class Framework:
         self.step = 0
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1_000, gamma=0.5)
+        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 2_000, gamma=0.1)
 
         # setup tensorboard
         train_log_dir = f"logs/Framework/runs/{self.name}"
@@ -67,14 +67,14 @@ class Framework:
         image_gpu = image.to(self.device)
         mask = mask.to(self.device)
 
-        # logging
-        self.log_image("image/t2w", normalize(image_gpu[0, 0, None]))
+        # logging 'adc', 'hbv', 't2w'
+        self.log_image("image/adc", normalize(image_gpu[0, 0, None]))
         self.log_image("image/hbv", normalize(image_gpu[0, 1, None]))
-        self.log_image("image/adc", normalize(image_gpu[0, 2, None]))
+        self.log_image("image/t2w", normalize(image_gpu[0, 2, None]))
         self.log_image("target/mask", mask)
         self.log_image("target/init_prediction", self.model.predict(image_gpu + self.model.change))
 
-        bar = trange(1, 5_001)
+        bar = trange(10_001)
         for self.step in bar:
             self.optimizer.zero_grad()
             pred, model_input = self.model(image_gpu)
@@ -91,14 +91,14 @@ class Framework:
                 self.log_value("lr", self.optimizer.param_groups[0]['lr'])
                 if self.step % 1_000 == 0:
                     change = self.model.change.detach()
-                    self.log_image("update/t2w", (image_gpu + change)[0, 0, None])
+                    self.log_image("update/adc", (image_gpu + change)[0, 0, None])
                     self.log_image("update/hbv", (image_gpu + change)[0, 1, None])
-                    self.log_image("update/adc", (image_gpu + change)[0, 2, None])
-                    self.log_image("update/change", change_visualization(change, normalize(image[0, 0])))
+                    self.log_image("update/t2w", (image_gpu + change)[0, 2, None])
+                    self.log_image("update/change", change_visualization(change, normalize(image[0, 2])))
                     self.log_image("target/prediction", self.model.predict(image_gpu + change))
 
             bar.set_description(
-                f"loss: {round(loss, 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 6)}")
+                f"loss: {round(loss, 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 8)}")
 
             del loss
 
@@ -113,7 +113,7 @@ class Framework:
         # log in tensorboard
         self.writer.add_image(
             f"{name}",
-            image,  # type: ignore
+            torch.rot90(image, k=3, dims=(-2, -1)),  # type: ignore
             global_step=self.step
         )  # type: ignore
 

@@ -38,6 +38,7 @@ class Trainer:
     def train(self, epochs: int = 10):
         self.model.to(self.device)
 
+        best_loss = float('inf')
         for e in range(1, epochs + 1):
             print(f"start epoch {e}")
             train_loss = self.train_epoch()
@@ -46,18 +47,22 @@ class Trainer:
             valid_loss = self.valid()
             self.log_value('valid/loss', valid_loss, e)
 
-        self.model.save()
+            if valid_loss < best_loss:
+                best_loss = valid_loss
+                self.model.save(f"{self.name}_es")
+
+        self.model.save(f"{self.name}_end")
 
     def train_epoch(self) -> float:
         self.model.train()
 
         losses = []
 
-        for images, masks in (bar := tqdm(self.trainloader, total=len(self.trainloader))):
+        for batch in (bar := tqdm(self.trainloader, total=len(self.trainloader))):
             self.step += 1
 
-            images = images.to(self.device)
-            masks = masks.to(self.device)
+            images = batch['tensor']
+            masks = batch['lesion'].long()
 
             self.optimizer.zero_grad()
             output = self.model(images)
@@ -77,9 +82,9 @@ class Trainer:
         self.model.eval()
 
         losses = []
-        for images, masks in self.testloader:
-            images = images.to(self.device)
-            masks = masks.to(self.device)
+        for batch in self.testloader:
+            images = batch['tensor']
+            masks = batch['lesion'].long()
 
             with torch.no_grad():
                 output = self.model(images)

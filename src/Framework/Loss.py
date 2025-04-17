@@ -3,7 +3,7 @@ from torch import nn
 
 
 class Loss(nn.Module):
-    def __init__(self, beta: float = .0, gamma: float = 1.0):
+    def __init__(self, beta: float = 2.5, gamma: float = 5.):
         super().__init__()
         self.loss_fn = nn.CrossEntropyLoss()
         self.beta = beta

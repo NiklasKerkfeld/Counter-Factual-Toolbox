@@ -22,9 +22,9 @@ from monai.transforms import (
     MapLabelValued,
     MapTransform,
     SpatialCrop,
-    SpatialPadd
+    SpatialPadd,
+    SaveImaged
 )
-
 
 SPACING = (0.3, 0.3, 1.0)
 CROPS = (256, 256, 64)
@@ -64,7 +64,8 @@ def get_roi(segment: torch.Tensor, edge: Tuple[int, int, int] = (0, 0, 0),
 
     center = xmin + ((xmax - xmin) // 2), ymin + ((ymax - ymin) // 2), zmin + ((zmax - zmin) // 2)
 
-    size = torch.tensor([xmax - xmin + 2 * edge[0], ymax - ymin + 2 * edge[1], zmax - zmin + 2 * edge[2]])
+    size = torch.tensor(
+        [xmax - xmin + 2 * edge[0], ymax - ymin + 2 * edge[1], zmax - zmin + 2 * edge[2]])
     size += kdiv - (size % kdiv)
 
     return center, tuple(size)
@@ -152,7 +153,8 @@ class PositiveSlices(MapTransform):
 # define monai transformations
 preprocess = Compose([
     # Load all imges and add a Channel at beginning (C, X, Y, Z)
-    LoadImaged(keys=['adc', 'hbv', 't2w', 'lesion', 'prostate'], ensure_channel_first=True, allow_missing_keys=True),
+    LoadImaged(keys=['adc', 'hbv', 't2w', 'lesion', 'prostate'], ensure_channel_first=True,
+               allow_missing_keys=True),
 
     # Clip intensity between 1. and 99. percentile and scale it between 0, 1
     ScaleIntensityRangePercentilesd(keys=['adc', 'hbv', 't2w'], lower=1, upper=99, b_min=0, b_max=1,
@@ -174,7 +176,8 @@ preprocess = Compose([
 
     # ensure all images of one patient have same spacing
     Spacingd(keys=['adc', 'hbv', 't2w', 'lesion', 'prostate'], pixdim=SPACING,
-             mode=("bilinear", "bilinear", "bilinear", "nearest", "nearest"), allow_missing_keys=True),
+             mode=("bilinear", "bilinear", "bilinear", "nearest", "nearest"),
+             allow_missing_keys=True),
 
     # cut out Region of prostate of the images
     CutRoiBySegmentationd(keys=['adc', 'hbv', 't2w', 'lesion', 'prostate'],
@@ -206,14 +209,28 @@ def preprocessing(patient: str, name: str, category: str):
     slices = preprocess(item)
 
     for i, slice in enumerate(slices):
-        path = f"{Path(__file__).parent.absolute()}/preprocessed/{category}/{name}/{i+1}"
+        path = f"{Path(__file__).parent.absolute()}/preprocessed/{category}/{name}/{i + 1}"
         os.makedirs(path, exist_ok=True)
 
-        input_data = torch.concat((slice['t2w'], slice['hbv'], slice['adc']), dim=0)
+        SaveImaged(
+            keys=['adc', 'hbv', 't2w'],
+            output_dir=path,
+            dtype=np.float32,
+            output_postfix='',
+            output_ext='.mha',
+            resample=False,
+            print_log=False,
+            separate_folder=False)(slice)
 
-        np.save(f"{path}/input.npy", np.rot90(input_data.numpy(), k=3, axes=(1, 2)))
-        np.save(f"{path}/target.npy", np.rot90(slice['lesion'].numpy(), k=3, axes=(1, 2)))
-        np.save(f"{path}/prostate.npy", np.rot90(slice['prostate'].numpy(), k=3, axes=(1, 2)))
+        SaveImaged(
+            keys=['lesion', 'prostate'],
+            output_dir=path,
+            dtype=np.int32,
+            output_postfix='',
+            output_ext='.nii.gz',
+            resample=False,
+            print_log=False,
+            separate_folder=False)(slice)
 
 
 def main():
@@ -226,13 +243,13 @@ def main():
 
     positive = split['positive']
 
-    for patient, file_name in tqdm(positive['train'], desc='preprocessing positive training'):
+    for patient, file_name in tqdm(positive['train'], desc='preprocessing training'):
         preprocessing(patient, file_name, 'train')
 
-    for patient, file_name in tqdm(positive['test'], desc='preprocessing positive test'):
+    for patient, file_name in tqdm(positive['test'], desc='preprocessing test'):
         preprocessing(patient, file_name, 'test')
 
-    for patient, file_name in tqdm(positive['valid'], desc='preprocessing positive valid'):
+    for patient, file_name in tqdm(positive['valid'], desc='preprocessing valid'):
         preprocessing(patient, file_name, 'valid')
 
 

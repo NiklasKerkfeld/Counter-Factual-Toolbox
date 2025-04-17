@@ -3,23 +3,21 @@ import os
 import torch
 from matplotlib import pyplot as plt
 
-from src.Picai.PICAIDataset import PicaiDataset
 from src.Model.model import SimpleUNet
+from src.Picai.utils import get_dataset
 
 
 def main():
-    model = SimpleUNet(in_channels=3)
-    model.load()
-
-    dataset = PicaiDataset("data/preprocessed/valid")
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
     print(f"device: {device}\n")
 
-    input_data, target = dataset[0]
+    model = SimpleUNet(in_channels=3)
+    model.load()
+    model.to(torch.device(device))
 
-    input_data = input_data.to(device)
-    model.to(device)
+    dataset = get_dataset("data/preprocessed/valid", train_mode=False, device=device)
+
+    input_data, target = dataset[0]
 
     with torch.no_grad():
         pred = model(input_data[None])

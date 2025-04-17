@@ -87,12 +87,12 @@ class SimpleUNet(nn.Module):
 
         return self.head(u4)
 
-    def save(self):
-        os.makedirs("../../saved_models", exist_ok=True)
-        torch.save(self.state_dict(), "saved_models/SimpleUNet.pt")
+    def save(self, name='SimpleUNet'):
+        os.makedirs("saved_models", exist_ok=True)
+        torch.save(self.state_dict(), f"saved_models/{name}.pt")
 
-    def load(self):
-        self.load_state_dict(torch.load("saved_models/SimpleUNet.pt"))
+    def load(self, name='SimpleUNet'):
+        self.load_state_dict(torch.load(f"saved_models/{name}.pt"))
 
 
 if __name__ == '__main__':
