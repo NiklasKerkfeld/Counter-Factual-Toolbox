@@ -26,7 +26,7 @@ from monai.transforms import (
     SaveImaged
 )
 
-SPACING = (0.3, 0.3, 1.0)
+SPACING = (0.3, 0.3, 0.5)
 CROPS = (256, 256, 64)
 np.random.seed(42)
 
@@ -165,7 +165,7 @@ preprocess = Compose([
 
     # ensure label and prostate only have 0 and 1 values
     MapLabelValued(keys=['lesion'], orig_labels=[0, 1, 2, 3, 4, 5, 6, 7],
-                   target_labels=[0, 0, 1, 1, 1, 1, 1, 1], allow_missing_keys=True),
+                   target_labels=[0, 1, 1, 1, 1, 1, 1, 1], allow_missing_keys=True),
 
     MapLabelValued(keys=['prostate'], orig_labels=[0, 1, 2, 3, 4, 5, 6, 7],
                    target_labels=[0, 1, 1, 1, 1, 1, 1, 1], allow_missing_keys=True),
@@ -209,7 +209,7 @@ def preprocessing(patient: str, name: str, category: str):
     slices = preprocess(item)
 
     for i, slice in enumerate(slices):
-        path = f"{Path(__file__).parent.absolute()}/preprocessed/{category}/{name}/{i + 1}"
+        path = f"{Path(__file__).parent.absolute()}/all_lesions/{category}/{name}/{i + 1}"
         os.makedirs(path, exist_ok=True)
 
         SaveImaged(
@@ -242,14 +242,18 @@ def main():
         split = json.load(f)
 
     positive = split['positive']
+    negative = split['negative']
+    data = {}
+    for key in positive.keys():
+        data[key] = positive[key] + negative[key]
 
-    for patient, file_name in tqdm(positive['train'], desc='preprocessing training'):
+    for patient, file_name in tqdm(data['train'], desc='preprocessing training'):
         preprocessing(patient, file_name, 'train')
 
-    for patient, file_name in tqdm(positive['test'], desc='preprocessing test'):
+    for patient, file_name in tqdm(data['test'], desc='preprocessing test'):
         preprocessing(patient, file_name, 'test')
 
-    for patient, file_name in tqdm(positive['valid'], desc='preprocessing valid'):
+    for patient, file_name in tqdm(data['valid'], desc='preprocessing valid'):
         preprocessing(patient, file_name, 'valid')
 
 

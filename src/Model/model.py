@@ -22,13 +22,12 @@ class ConvLayer(nn.Module):
         return self.model(x)
 
 
-class Block(nn.Module):
+class ResidualBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
         self.conv1 = ConvLayer(in_channels, out_channels // 4, kernel_size=3, padding=1)
         self.conv2 = ConvLayer(out_channels // 4, out_channels // 4, kernel_size=3, padding=1)
         self.conv3 = ConvLayer(out_channels // 4, out_channels, kernel_size=3, padding=1)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         self.conv4 = ConvLayer(in_channels, out_channels, kernel_size=3, padding=1) if in_channels != out_channels else None
 
@@ -41,6 +40,20 @@ class Block(nn.Module):
             x = self.conv4(x)
 
         x = h + x
+
+        return x
+
+
+class Block(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+        self.layer1 = ResidualBlock(in_channels, out_channels)
+        self.layer2 = ResidualBlock(out_channels, out_channels)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
         x = self.pool(x)
 
         return x
@@ -96,8 +109,11 @@ class SimpleUNet(nn.Module):
 
 
 if __name__ == '__main__':
+    from torchsummary import summary
     dummy = torch.randn(1, 3, 64, 64)
 
     model = SimpleUNet()
+    print(model)
+    print(summary(model))
 
     print(model(dummy).shape)

@@ -4,7 +4,28 @@ from typing import List, Dict
 
 from monai.data import CacheDataset
 from monai.transforms import Compose, LoadImaged, RandRotated, RandShiftIntensityd, \
-    RandScaleIntensityd, ConcatItemsd, ToTensord, ToDeviced, SqueezeDimd, RandGaussianNoised, Transposed
+    RandScaleIntensityd, ConcatItemsd, ToTensord, ToDeviced, SqueezeDimd, RandGaussianNoised
+
+
+def load_image(path):
+    name = path.split(os.sep)[-2]
+    item = {
+        'adc': f'{path}/{name}_adc.mha',
+        'hbv': f'{path}/{name}_hbv.mha',
+        't2w': f'{path}/{name}_t2w.mha',
+        'lesion': f'{path}/{name}_lesion.nii.gz'
+    }
+
+    sequences = ['adc', 'hbv', 't2w']
+    load = Compose([
+        LoadImaged(keys=sequences + ['lesion'], ensure_channel_first=True),
+        ConcatItemsd(keys=sequences, name='tensor', dim=1),
+        SqueezeDimd(keys=['tensor', 'lesion'], dim=0),
+        SqueezeDimd(keys=['lesion'], dim=0),
+        ToTensord(keys=['tensor', 'lesion']),
+    ])
+
+    return load(item)
 
 
 def get_data(path) -> List[Dict[str, str]]:
