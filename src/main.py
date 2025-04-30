@@ -12,7 +12,7 @@ def fcd():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}\n")
 
-    item = load_data("nnUNet/nnUNet_raw/Dataset101_fcd/sub-00003", device=device, slice=161)
+    item = load_data("nnUNet/nnUNet_raw/Dataset101_fcd/sub-00003", device=torch.device('cpu'), slice=161)
     print(f"{item['tensor'].shape=}")
 
     model = get_network(configuration='2d', fold=0)
