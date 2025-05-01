@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -7,7 +7,7 @@ from PIL import Image
 from matplotlib import pyplot as plt
 
 
-def normalize(image: torch.Tensor) -> torch.Tensor:
+def normalize(image: Union[torch.Tensor, np.ndarray]) -> Union[torch.Tensor, np.ndarray]:
     image -= image.min()
     image /= image.max()
     return image
