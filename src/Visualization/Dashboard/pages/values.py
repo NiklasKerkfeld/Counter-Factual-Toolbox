@@ -1,7 +1,7 @@
 import dash
 from dash import html, Input, Output, callback, dcc, ALL
 import plotly.express as px
-from src.Visualization.Dashboard.load import value_data
+from src.Visualization.Dashboard.load import loader
 
 dash.register_page(__name__, path='/src/Visualization/Dashboard/pages/values')
 
@@ -10,7 +10,7 @@ value_plots = [
         html.H2(value),
         html.Div(id='loss-page-output'),
         dcc.Graph(id={'type': 'value_plot', 'index': value}),
-    ]) for value in set(value_data['key'])
+    ]) for value in set(loader.value_data['key'])
 ]
 
 layout = html.Div([
@@ -26,10 +26,10 @@ layout = html.Div([
 )
 def update_page2(data):
     datasets = data.get('datasets', [])
-    filtered = value_data[value_data['dataset'].isin(datasets)]
+    filtered = loader.value_data[loader.value_data['dataset'].isin(datasets)]
 
     figs = []
-    for key in set(value_data['key']):
+    for key in set(loader.value_data['key']):
         figs.append(px.line(filtered[filtered['key'] == key],
                             x='step',
                             y='value',

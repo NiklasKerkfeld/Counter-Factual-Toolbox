@@ -1,163 +1,23 @@
 import base64
 import io
-import os
-from typing import Dict
+from typing import Dict, Tuple
 
 import dash
+import numpy as np
+from PIL import Image
 from dash import html, Input, Output, callback, ALL, dcc, ctx, MATCH, State
-from matplotlib import pyplot as plt
 
-from src.Visualization.Dashboard.load import images, dataset_folders
+from src.Visualization.Dashboard.load import loader
+from src.Visualization.Dashboard.utils import blend_overlay, pad
 
 dash.register_page(__name__, path='/src/Visualization/Dashboard/pages/image')
 
-# Create image blocks
-images_blocks = [
-    html.Div([
-        html.H3(folder),
-        html.Div([
-            html.Div([
-                html.Div([
-                    html.Button("axial",
-                                id={'type': 'orientation-btn', 'index': folder,
-                                    'view': 'axial'},
-                                style={'backgroundColor': 'gray', 'margin': '5px'}),
-                    html.Button("sagittal",
-                                id={'type': 'orientation-btn', 'index': folder,
-                                    'view': 'sagittal'},
-                                style={'backgroundColor': 'gray', 'margin': '5px'}),
-                    html.Button("coronal",
-                                id={'type': 'orientation-btn', 'index': folder,
-                                    'view': 'coronal'},
-                                style={'backgroundColor': 'gray', 'margin': '5px'}),
-                ], style={'display': 'flex', 'gap': '10px', 'marginTop': '10px'}),
-                html.Img(id={'type': 'mri-image', 'index': folder},
-                         style={'width': '512px'}),
-                dcc.Store(id={'type': 'orientation-store', 'index': folder},
-                          data='axial')
-            ], style={'padding': '10px'}),
-
-            html.Div([
-                html.H3("Select sequence:"),
-                dcc.Dropdown(
-                    id={'type': 'image-dropdown', 'index': folder},
-                    options=[{'label': k, 'value': k} for k in imgs.keys() if k != 'target'],
-                    value=list(imgs.keys())[0],
-                    clearable=False
-                ),
-                html.H3("Select step:"),
-                dcc.Slider(
-                    id={'type': 'step-slider', 'index': folder},
-                    min=0,
-                    max=10,
-                    step=1,
-                    value=10,
-                    marks={0: '0', 10: str(10)},
-                    tooltip={'placement': 'bottom'}
-                ),
-                html.H3("Select slice:"),
-                dcc.Slider(
-                    id={'type': 'slice-slider', 'index': folder},
-                    min=0,
-                    max=160,
-                    step=1,
-                    value=160 // 2,
-                    marks={0: '0', 160: str(160)},
-                    tooltip={'placement': 'bottom'}
-                ),
-                html.Div([
-                    dcc.Checklist(
-                        id='checklist',
-                        options=[{'label': 'change', 'value': 'change'},
-                                 {'label': 'apply change', 'value': 'apply'},
-                                 {'label': 'target', 'value': 'target'},
-                                 {'label': 'prediction', 'value': 'pred'}, ],
-                        value=[],  # empty = unchecked, ['change'] = checked
-                        inline=False
-                    )
-                ], style={'margin-top': '20px'})
-            ], style={'flex': '1', 'padding': '10px'})
-        ], style={'display': 'flex', 'gap': '40px'})
-    ],
-        id={'type': 'image-block', 'index': folder},
-        style={'display': 'none'}
-    ) for folder, imgs in images.items()
-]
+image_blocks = []
 
 layout = html.Div([
     html.H1("Images"),
-    html.Div([
-        *images_blocks]
-    )
+    html.Div(id='image-container')
 ])
-
-
-@callback(
-    Output({'type': 'orientation-store', 'index': MATCH}, 'data'),
-    Output({'type': 'orientation-btn', 'index': MATCH, 'view': ALL}, 'style'),
-    Input({'type': 'orientation-btn', 'index': MATCH, 'view': ALL}, 'n_clicks'),
-    State({'type': 'orientation-btn', 'index': MATCH, 'view': ALL}, 'id'),
-    prevent_initial_call=True
-)
-def orientation_buttons(n_clicks, btn_ids):
-    if not any(n_clicks):
-        raise dash.exceptions.PreventUpdate
-
-    triggered = ctx.triggered_id
-    selected_view = triggered['view'] if triggered else 'axial'
-
-    styles = []
-    for btn_id in btn_ids:
-        styles.append({
-            'backgroundColor': 'red' if btn_id['view'] == selected_view else 'gray',
-            'margin': '5px'
-        })
-
-    return selected_view, styles
-
-
-# image selection
-@callback(
-    Output({'type': 'image-block', 'index': ALL}, 'style'),
-    Input('shared-data-selection', 'data'),
-    prevent_initial_call=True
-)
-def image_visibility(data):
-    selected = data.get('datasets', []) if data else []
-    return [
-        {'display': 'block'} if dataset in selected else {'display': 'none'}
-        for dataset in dataset_folders
-    ]
-
-
-# get image
-@callback(
-    Output({'type': 'mri-image', 'index': ALL}, 'src'),
-    State('dataset-store', 'data'),
-    Input('shared-data-selection', 'data'),
-    Input({'type': 'image-dropdown', 'index': ALL}, 'value'),
-    Input({'type': 'slice-slider', 'index': ALL}, 'value'),
-    Input({'type': 'orientation-store', 'index': ALL}, 'data'),
-    prevent_initial_call=True
-)
-def show_selected_images(dataset_last_selected, data, sequences, steps, orientations):
-    if ctx.triggered_id == 'shared-data-selection':
-        update = dataset_last_selected
-    else:
-        update = ctx.triggered_id['index']
-
-    updated_srcs = []
-    for dataset_name, sequence, orientation, step in zip(dataset_folders, sequences, orientations, steps):
-        if dataset_name == update:
-            updated_srcs.append(get_image(dataset_name,
-                                          sequence=sequence,
-                                          orientation=orientation,
-                                          slice=step))
-        else:
-            updated_srcs.append(dash.no_update)
-
-    return updated_srcs
-
 
 orientation_to_dim: Dict[str, int] = {
     'sagittal': 0,
@@ -166,17 +26,220 @@ orientation_to_dim: Dict[str, int] = {
 }
 
 
-def get_image(dataset: str, sequence: str = 't1w', orientation: str = 'axial', slice: int = 80):
+@callback(
+    Output('image-container', 'children', allow_duplicate=True),
+    Input('shared-data-selection', 'data'),
+    State('image-container', 'children'),
+    prevent_initial_call=True
+)
+def update_image_blocks(selected_datasets, current_children):
+    selected_datasets = selected_datasets['datasets']
+    if not isinstance(current_children, list):
+        current_children = []
+
+    # Get currently rendered dataset IDs from existing blocks
+    current_ids = {child['props']['id']['index'] for child in current_children if
+                   'props' in child and isinstance(child['props'].get('id'), dict)}
+
+    selected_datasets = set(selected_datasets or [])
+
+    # Compute additions and removals
+    to_add = selected_datasets - current_ids
+    to_keep = selected_datasets & current_ids
+
+    updated_children = [child for child in current_children if
+                        child['props']['id']['index'] in to_keep]
+
+    for dataset in to_add:
+        updated_children.append(
+            build_image_block(dataset))  # 👈 helper function builds a single block
+
+    return updated_children
+
+
+def build_image_block(dataset):
+    image_dict = loader.get_image(dataset)
+    init_seq = list(image_dict.keys())[0]
+    min_val = int(image_dict[init_seq].min())
+    max_val = int(image_dict[init_seq].max() + 1)
+    steps = loader.get_steps(dataset)
+
+    image_cells = []
+    for orientation in ['axial', 'sagittal', 'coronal']:
+        slices = image_dict[init_seq].shape[orientation_to_dim[orientation]]
+        image_cells.append(
+            html.Div([
+                html.H4(orientation),
+                html.Div([
+                    dcc.RangeSlider(min=min_val, max=max_val, step=0.1,
+                                    value=[min_val, max_val],
+                                    marks={min_val: str(min_val), max_val: str(max_val)},
+                                    vertical=True,
+                                    id={'type': 'range-slider', 'index': dataset,
+                                        'orientation': orientation}),
+                    html.Img(id={'type': 'mri-image', 'index': dataset, 'orientation': orientation},
+                             style={'height': '475px'})
+                ], style={'display': 'flex', 'alignItems': 'center'}),
+                dcc.Slider(
+                    id={'type': 'slice-slider', 'index': dataset, 'orientation': orientation},
+                    min=0,
+                    max=slices,
+                    step=1,
+                    value=slices // 2,
+                    marks={0: '0', slices: str(slices)},
+                    tooltip={'placement': 'bottom'}),
+                dcc.Store(
+                    id={'type': 'sequence-store', 'index': dataset, 'orientation': orientation},
+                    data=init_seq),
+                dcc.Store(
+                    id={'type': 'checklist-store', 'index': dataset, 'orientation': orientation},
+                    data=[]),
+                dcc.Store(
+                    id={'type': 'step-store', 'index': dataset, 'orientation': orientation},
+                    data=steps)
+            ])
+        )
+
+    return html.Div([
+        html.Div([
+            html.H2(dataset),
+            dcc.Dropdown(
+                id={'type': 'image-dropdown', 'index': dataset},
+                options=[{'label': k, 'value': k} for k in image_dict.keys() if k != 'target'],
+                value=init_seq,
+                clearable=False),
+        ], style={'display': 'flex', 'alignItems': 'center', 'gap': '10px'}),
+        html.Div([
+            dcc.Checklist(
+                id={'type': 'checklist', 'index': dataset},
+                options=[{'label': 'show change', 'value': 'change'},
+                         {'label': 'show target', 'value': 'target'},
+                         {'label': 'show prediction', 'value': 'pred'},
+                         {'label': 'apply change', 'value': 'apply'},
+                         ],
+                value=[],  # empty = unchecked, ['change'] = checked
+                inline=True
+            ),
+            html.Div([
+                html.H4("step:"),
+                html.Div(
+                    dcc.Slider(
+                        id={'type': 'step-slider', 'index': dataset},
+                        min=1,
+                        max=steps,
+                        step=1,
+                        value=steps,
+                        marks={0: '0', steps: str(steps)},
+                        tooltip={'placement': 'bottom'}
+                    ), style={'flex': '1'}
+                )
+            ], style={'display': 'flex', 'alignItems': 'center', 'width': '100%'})
+        ]),
+        html.Div(image_cells, style={'display': 'flex', 'alignItems': 'center'})
+    ], id={'type': 'image-block', 'index': dataset})
+
+
+@callback(
+    Output({'type': 'mri-image', 'index': MATCH, 'orientation': MATCH}, 'src'),
+    Input({'type': 'range-slider', 'index': MATCH, 'orientation': MATCH}, 'value'),
+    Input({'type': 'slice-slider', 'index': MATCH, 'orientation': MATCH}, 'value'),
+    Input({'type': 'sequence-store', 'index': MATCH, 'orientation': MATCH}, 'data'),
+    Input({'type': 'checklist-store', 'index': MATCH, 'orientation': MATCH}, 'data'),
+    Input({'type': 'step-store', 'index': MATCH, 'orientation': MATCH}, 'data'),
+    prevent_initial_call=True
+)
+def update_image(value_range, selected_slice, sequence, checklist, step):
+    triggered_id = ctx.triggered_id
+    dataset = triggered_id['index']
+    orientation = triggered_id['orientation']
+    show_target = 'target' in checklist
+    show_change = 'change' in checklist
+    show_pred = 'pred' in checklist
+    apply_change = 'apply' in checklist
+    return get_image(dataset, value_range, sequence, orientation, selected_slice, step,
+                     show_target, show_change, show_pred, apply_change)
+
+
+def get_image(dataset: str,
+              value_range: Tuple[int, int],
+              sequence: str = 't1w',
+              orientation: str = 'axial',
+              slice: int = 80,
+              step: int = 0,
+              show_target: bool = False,
+              show_change: bool = False,
+              show_pred: bool = False,
+              apply_change: bool = False):
     dim = orientation_to_dim.get(orientation, 0)
-    image = images[dataset][sequence].take([slice], axis=dim).squeeze(axis=dim)
+    image = loader.get_image(dataset)[sequence].take([slice], axis=dim).squeeze(axis=dim).clip(
+        value_range[0],
+        value_range[1])
+    image -= value_range[0]
+    image /= (value_range[1] + 1e-9)
 
-    fig, ax = plt.subplots()
-    ax.imshow(image, cmap='gray', origin='lower')
+    if apply_change:
+        image += loader.get_change(dataset)[step][sequence].take([slice], axis=dim).squeeze(
+            axis=dim)
 
-    ax.axis('off')
+    image = (image * 255).astype(np.uint8)  # Normalize to 0-255
+    img_pil = Image.fromarray(image)
+
+    if show_target:
+        target = loader.get_image(dataset)['target'].take([slice], axis=dim).squeeze(axis=dim)
+        img_pil = blend_overlay(img_pil, target)
+
+    if show_pred:
+        pred = loader.get_pred(dataset)[step].take([slice], axis=dim).squeeze(axis=dim)
+        img_pil = blend_overlay(img_pil, pred, cmap='Reds')
+
+    if show_change:
+        change = loader.get_change(dataset)[step][sequence].take([slice], axis=dim).squeeze(
+            axis=dim)
+        img_pil = blend_overlay(img_pil, change, cmap='RdBu')
+
+    img_pil = pad(img_pil)
+    img_pil.rotate(90)
+
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
-    plt.close(fig)
-    buf.seek(0)
-    encoded = base64.b64encode(buf.read()).decode('utf-8')
+    img_pil.save(buf, format='PNG')
+    encoded = base64.b64encode(buf.getvalue()).decode()
     return f"data:image/png;base64,{encoded}"
+
+
+@callback(
+    Output({'type': 'range-slider', 'index': MATCH, 'orientation': ALL}, 'max'),
+    Output({'type': 'range-slider', 'index': MATCH, 'orientation': ALL}, 'min'),
+    Input({'type': 'sequence-store', 'index': MATCH, 'orientation': ALL}, 'data'),
+    prevent_initial_call=True
+)
+def sequence_select(sequences):
+    dataset = ctx.triggered_id['index']
+    image = loader.get_image(dataset)[sequences[0]]
+    max_value, min_value = image.max(), image.min()
+
+    return [max_value, max_value, max_value], [min_value, min_value, min_value]
+
+
+@callback(
+    Output({'type': 'sequence-store', 'index': MATCH, 'orientation': ALL}, 'data'),
+    Input({'type': 'image-dropdown', 'index': MATCH}, 'value'),
+    prevent_initial_call=True
+)
+def sequence_select(sequence):
+    return [sequence, sequence, sequence]
+
+
+@callback(
+    Output({'type': 'checklist-store', 'index': MATCH, 'orientation': ALL}, 'data'),
+    Input({'type': 'checklist', 'index': MATCH}, 'value')
+)
+def checklist_select(checklist):
+    return [checklist, checklist, checklist]
+
+
+@callback(
+    Output({'type': 'step-store', 'index': MATCH, 'orientation': ALL}, 'data'),
+    Input({'type': 'step-slider', 'index': MATCH}, 'value')
+)
+def step_select(step):
+    return [step, step, step]

@@ -7,57 +7,109 @@ import numpy as np
 import pandas as pd
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd
 
-from src.Framework.utils import normalize
 from src.fcd.utils import AddMissingd
 
 
-def load_dataset(folders):
-    # Load dataset folders dynamically
-    all_data = []
+class Loader:
+    def __init__(self, dataset_path: str):
+        self.dataset_path = dataset_path
+        self.dataset_paths = sorted(
+            [path for path in glob.glob(f"{dataset_path}/*") if os.path.isdir(path)])
 
-    for folder in folders:
-        path = f"{folder}/loss.csv"
+        self.dataset_folders = [os.path.basename(path) for path in self.dataset_paths]
 
-        if os.path.exists(path):
-            try:
-                df = pd.read_csv(path)
-                df['dataset'] = os.path.basename(folder)  # Add a column to track source
-                all_data.append(df)
-            except Exception as e:
-                print(f"Error reading {path}: {e}")
+        self.value_data = self.load_dataset(self.dataset_paths)
 
-    if all_data:
-        combined_df = pd.concat(all_data, ignore_index=True)
-    else:
-        combined_df = pd.DataFrame()
+        self.mri_loader = Compose([
+            LoadImaged(keys=['t1w', 'FLAIR', 'target'],
+                       reader="NibabelReader",
+                       ensure_channel_first=True,
+                       allow_missing_keys=True),
+            AddMissingd(keys=['t1w', 'FLAIR', 'target'], key_add='target', ref='FLAIR'),
+            ResampleToMatchd(keys=['t1w', 'FLAIR'], key_dst='target')])
 
-    return combined_df
+        self.images = {}
+        self.changes = {}
+        self.preds = {}
+        self.steps = {}
+
+    @property
+    def runs(self):
+        return self.dataset_folders
+
+    def get_image(self, folder: str):
+        if folder not in self.images.keys():
+            self.images[folder] = self.load_image(f"{self.dataset_path}/{folder}")
+
+        return self.images[folder]
+
+    def get_change(self, folder: str):
+        if folder not in self.changes.keys():
+            self.changes[folder] = self.load_changes(f"{self.dataset_path}/{folder}")
+
+        return self.changes[folder]
+
+    def get_pred(self, folder: str):
+        if folder not in self.preds.keys():
+            self.preds[folder] = self.load_preds(f"{self.dataset_path}/{folder}")
+
+        return self.preds[folder]
+
+    def get_steps(self, folder: str):
+        if folder not in self.steps.keys():
+            self.steps[folder] = max([int(os.path.basename(file)[7:-4]) for file in
+                                      glob.glob(f"{self.dataset_path}/{folder}/change_*.npz")])
+
+        return self.steps[folder]
+
+    @staticmethod
+    def load_dataset(folders):
+        # Load dataset folders dynamically
+        all_data = []
+
+        for folder in folders:
+            path = f"{folder}/loss.csv"
+
+            if os.path.exists(path):
+                try:
+                    df = pd.read_csv(path)
+                    df['dataset'] = os.path.basename(folder)  # Add a column to track source
+                    all_data.append(df)
+                except Exception as e:
+                    print(f"Error reading {path}: {e}")
+
+        if all_data:
+            combined_df = pd.concat(all_data, ignore_index=True)
+        else:
+            combined_df = pd.DataFrame()
+
+        return combined_df
+
+    def load_image(self, folder: str) -> Dict[str, np.ndarray]:
+        with open(f"{folder}/logs.json") as f:
+            item = json.load(f)
+
+        images = self.mri_loader(item['images'])
+
+        return {key: value[0].numpy() for key, value in images.items()}
+
+    @staticmethod
+    def load_preds(folder: str) -> Dict[int, np.ndarray]:
+        preds: Dict[int, np.ndarray] = {}
+        for file in glob.glob(f'{folder}/pred_*.npy'):
+            nr = int(os.path.basename(file)[5:-4])
+            preds[nr] = np.load(file)
+
+        return preds
+
+    @staticmethod
+    def load_changes(folder: str) -> Dict[int, np.ndarray]:
+        changes: Dict[int, Dict[str, np.ndarray]] = {}
+        for file in glob.glob(f'{folder}/*.npz'):
+            nr = int(os.path.basename(file)[7:-4])
+            changes[nr] = np.load(file)
+
+        return changes
 
 
-dataset_path = "logs/new"  # <-- Change this to your dataset folder
-dataset_paths = sorted([path for path in glob.glob(f"{dataset_path}/*") if os.path.isdir(path)])
-dataset_folders = [os.path.basename(path) for path in dataset_paths]
-
-value_data = load_dataset(dataset_paths)
-
-
-mri_loader = Compose([
-    LoadImaged(keys=['t1w', 'FLAIR', 'target'],
-               reader="NibabelReader",
-               ensure_channel_first=True,
-               allow_missing_keys=True),
-    AddMissingd(keys=['t1w', 'FLAIR', 'target'], key_add='target', ref='FLAIR'),
-    ResampleToMatchd(keys=['t1w', 'FLAIR'], key_dst='target')])
-
-
-def load_image(folder: str) -> Dict[str, np.ndarray]:
-    with open(f"{folder}/logs.json") as f:
-        item = json.load(f)
-
-    images = mri_loader(item['images'])
-
-    return {key: normalize(np.rot90(value[0].numpy(), k=3, axes=(0, 2))) for key, value in images.items()}
-
-
-images = {folder: load_image(path) for folder, path in zip(dataset_folders, dataset_paths)}
-print(images['run1']['t1w'].shape)
+loader = Loader("logs/new")

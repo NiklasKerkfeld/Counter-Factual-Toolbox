@@ -5,7 +5,7 @@ import dash
 from app import app
 from dash import Input, Output, ctx, ALL
 
-from src.Visualization.Dashboard.load import dataset_folders
+from src.Visualization.Dashboard.load import loader
 
 
 # Create one button per dataset
@@ -18,7 +18,7 @@ dataset_buttons = [
             "display": "block", "margin": "10px", "background": "none",
             "border": "none", "color": "blue", "textAlign": "left", "cursor": "pointer"
         }
-    ) for folder in dataset_folders
+    ) for folder in loader.runs
 ]
 
 # Layout
