@@ -66,8 +66,8 @@ class ImageRegularizer(nn.Module):
 class Loss(nn.Module):
     def __init__(self,
                  weight_image_regularizer: float = 1.0,
-                 weight_l1: float = 2.0,
-                 weight_smooth: float = 5.0,
+                 weight_l1: float = 20.0,
+                 weight_smooth: float = 50.0,
                  channel: int = 1,
                  dims: int = 3):
         super().__init__()
