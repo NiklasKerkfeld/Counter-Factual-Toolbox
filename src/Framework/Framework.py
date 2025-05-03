@@ -80,7 +80,7 @@ class Framework:
                                        **loss_dict,
                                        lr=self.optimizer.param_groups[0]['lr'])
 
-                if self.step % 2_000 == 0:
+                if self.step % 1_000 == 0:
                     change = self.model.change.detach()
                     self.logger.log_change(self.step, change)
                     self.logger.log_prediction(self.step, self.model.predict(image_gpu + change))

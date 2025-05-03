@@ -10,6 +10,7 @@ import torch
 class Logger:
     def __init__(self, logging_path: str, images_paths: Dict[str, str], target_path: str):
         self.logging_path = logging_path
+        self.modalities = list(images_paths.keys())
 
         os.makedirs(self.logging_path)
         with open(f"{self.logging_path}/logs.json", 'w') as f:
@@ -20,9 +21,9 @@ class Logger:
         with open(f"{self.logging_path}/loss.csv", "x") as f:
             f.write(f"step,key,value\n")
 
-    def log_change(self, step: int, change: Dict[str, Union[torch.tensor, np.ndarray]]):
+    def log_change(self, step: int, change: Union[torch.tensor, np.ndarray]):
         change = {key: value.numpy() if isinstance(value, torch.Tensor) else value for key, value in
-                  change.items()}
+                  zip(self.modalities, change)}
         np.savez(f"{self.logging_path}/change_{step}.npz", **change)
 
     def log_prediction(self, step: int, prediction: Union[torch.tensor, np.ndarray]):
