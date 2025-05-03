@@ -86,6 +86,6 @@ class Framework:
                     self.logger.log_prediction(self.step, self.model.predict(image_gpu + change))
 
             bar.set_description(
-                f"loss: {round(loss, 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 10)}")
+                f"loss: {round(loss.detach().cpu().item(), 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 10)}")
 
             del loss
