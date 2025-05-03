@@ -22,7 +22,7 @@ class Logger:
             f.write(f"step,key,value\n")
 
     def log_change(self, step: int, change: Union[torch.tensor, np.ndarray]):
-        change = {key: value.numpy() if isinstance(value, torch.Tensor) else value for key, value in
+        change = {key: value.cpu().numpy() if isinstance(value, torch.Tensor) else value for key, value in
                   zip(self.modalities, change)}
         np.savez(f"{self.logging_path}/change_{step}.npz", **change)
 
