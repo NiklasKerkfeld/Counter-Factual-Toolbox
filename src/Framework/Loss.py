@@ -79,7 +79,7 @@ class Loss(nn.Module):
         self.weight_smooth = weight_smooth
 
         self.loss_fn = nn.CrossEntropyLoss()
-        self.image_reg = ImageRegularizer()
+        # self.image_reg = ImageRegularizer()
         self.value_reg = L1Regularizer()
         smooth_reg = SmoothRegularizer2D if dims == 2 else SmoothRegularizer3D
         self.smooth_reg = smooth_reg(channel)
@@ -93,7 +93,7 @@ class Loss(nn.Module):
         prediction_loss = self.loss_fn(pred, target)
 
         # penalize values out of image range
-        image_reg = self.image_reg(new_image)
+        # image_reg = self.image_reg(new_image)
 
         # penalize high change values
         value_reg = self.value_reg(change)
@@ -101,12 +101,12 @@ class Loss(nn.Module):
         # regularize smoothness
         smooth_reg = self.smooth_reg(change)
 
-        loss = prediction_loss + image_reg * self.weight_image + value_reg * self.weight_l1 + smooth_reg * self.weight_smooth
+        loss = prediction_loss + value_reg * self.weight_l1 + smooth_reg * self.weight_smooth
 
         loss_dict = {
             "loss": loss.detach().item(),
             "prediction_loss": prediction_loss.detach().item(),
-            "image_reg": image_reg.detach().item(),
+            # "image_reg": image_reg.detach().item(),
             "value_reg": value_reg.detach().item(),
             "smooth_reg": smooth_reg.detach().item(),
         }
