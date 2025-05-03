@@ -1,6 +1,8 @@
+import argparse
+
 import torch
 
-from Framework.Framework import Framework
+from src.Framework.Framework import Framework
 from src.Model.model import SimpleUNet
 from src.Picai.utils import load_image
 from src.fcd.utils import get_network, get_image_files, load_item
@@ -40,6 +42,34 @@ def picai():
     framework.process(item['tensor'][None], item['lesion'][None].long())
 
 
+def get_args() -> argparse.Namespace:
+    """
+    Defines arguments.
+
+    Returns:
+        Namespace with parsed arguments.
+    """
+    parser = argparse.ArgumentParser(description="path to image folder")
+
+    parser.add_argument(
+        "--name",
+        "-n",
+        type=str,
+        help="name of this run in the log files."
+    )
+
+    parser.add_argument(
+        "--path",
+        "-p",
+        type=str,
+        help="path to image folder."
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    main(name='run1',
-         data_path="nnUNet/nnUNet_raw/Dataset101_fcd/sub-00003")
+    args = get_args()
+
+    main(name=args['name'],
+         data_path=args['path'])
