@@ -71,5 +71,5 @@ def get_args() -> argparse.Namespace:
 if __name__ == '__main__':
     args = get_args()
 
-    main(name=args['name'],
-         data_path=args['path'])
+    main(name=args.name,
+         data_path=args.path)
