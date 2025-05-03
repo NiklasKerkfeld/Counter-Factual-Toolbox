@@ -2,23 +2,26 @@ import torch
 
 from Framework.Framework import Framework
 from src.Model.model import SimpleUNet
-from src.Picai.utils import get_dataset, load_image
-from src.fcd.utils import load_data, get_network
+from src.Picai.utils import load_image
+from src.fcd.utils import get_network, get_image_files, load_item
+from src.Visualization.Logger import Logger
 
 
-def fcd():
-    torch.manual_seed(42)
+def main(name: str, data_path: str):
+    item = get_image_files(data_path)
+    # setup logger
+    train_log_dir = f"logs/Logger/{name}"
+    print(f"{train_log_dir=}")
+    logger = Logger(train_log_dir,
+                    images_paths={key: value for key, value in item.items() if key != 'target'},
+                    target_path=item['target'])  # type: ignore
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"device: {device}\n")
-
-    item = load_data("nnUNet/nnUNet_raw/Dataset101_fcd/sub-00003", device=torch.device('cpu'), slice=161)
+    item = load_item(item)
     print(f"{item['tensor'].shape=}")
 
-    model = get_network(configuration='2d', fold=0)
-    framework = Framework(model, item['tensor'].shape, device, name="fcd5")
-
-    framework.process(item['tensor'][None], item['roi'].long())
+    model = get_network(configuration='3d_fullres', fold=0)
+    framework = Framework(model, item['tensor'].shape, logger)
+    framework.process(item['tensor'][None], item['target'].long())
 
 
 def picai():
@@ -38,4 +41,5 @@ def picai():
 
 
 if __name__ == '__main__':
-    fcd()
+    main(name='run1',
+         data_path="nnUNet/nnUNet_raw/Dataset101_fcd/sub-00003")

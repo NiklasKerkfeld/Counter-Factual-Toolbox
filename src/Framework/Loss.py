@@ -2,80 +2,123 @@ import torch
 from torch import nn
 
 
-class Loss(nn.Module):
-    def __init__(self,
-                 weight_l1: float = 2.0,
-                 weight_l2: float = 0.0,
-                 weight_magnitude: float = 5.0,
-                 weight_bi_model: float = 0.0,
-                 weight_try: float = 0.0,
-                 channel: int = 1):
+class SmoothRegularizer3D(nn.Module):
+    def __init__(self, channel: int):
         super().__init__()
-        self.weight_l1 = weight_l1
-        self.weight_l2 = weight_l2
-        self.weight_magnitude = weight_magnitude
-        self.weight_bi_modal = weight_bi_model
-        self.weight_try = weight_try
         self.channel = channel
+        self.kernel = nn.Parameter(
+            torch.tensor([[[[[-1 / 26, -1 / 26, -1 / 26],
+                             [-1 / 26, -1 / 26, -1 / 26],
+                             [-1 / 26, -1 / 26, -1 / 26]],
+                            [[-1 / 26, -1 / 26, -1 / 26],
+                             [-1 / 26, 1, -1 / 26],
+                             [-1 / 26, -1 / 26, -1 / 26]],
+                            [[-1 / 26, -1 / 26, -1 / 26],
+                             [-1 / 26, -1 / 26, -1 / 26],
+                             [-1 / 26, -1 / 26, -1 / 26]]]]]).repeat(channel, 1, 1, 1, 1))
 
-        self.loss_fn = nn.CrossEntropyLoss()
+        print(self.kernel.shape)
+
+    def forward(self, x) -> torch.Tensor:
+        return torch.mean(torch.abs(torch.conv3d(x, self.kernel, groups=self.channel)))
+
+
+class SmoothRegularizer2D(nn.Module):
+    def __init__(self, channel: int):
+        super().__init__()
+        self.channel = channel
+        self.kernel = nn.Parameter(
+            torch.tensor([[[[-1 / 8, -1 / 8, -1 / 8],
+                            [-1 / 8, 1, -1 / 8],
+                            [-1 / 8, -1 / 8, -1 / 8]]]]).repeat(channel, 1, 1, 1))
+
+        print(self.kernel.shape)
+
+    def forward(self, x) -> torch.Tensor:
+        return torch.mean(torch.abs(torch.conv2d(x, self.kernel, groups=self.channel)))
+
+
+class L1Regularizer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x) -> torch.Tensor:
+        return torch.mean(torch.abs(x))
+
+
+class L2Regularizer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x) -> torch.Tensor:
+        return torch.mean(x ** 2)
+
+
+class ImageRegularizer(nn.Module):
+    def __init__(self):
+        super().__init__()
         self.relu = nn.ReLU()
 
-        self.grad_x = nn.Parameter(torch.tensor([[[[1., -1.]]]]).repeat(self.channel, 1, 1, 1),
-                                   requires_grad=False)
-        self.grad_y = nn.Parameter(torch.tensor([[[[1.], [-1.]]]]).repeat(self.channel, 1, 1, 1),
-                                   requires_grad=False)
+    def forward(self, x) -> torch.Tensor:
+        return torch.sum(self.relu(x - 1)) + torch.sum(self.relu(-x))
 
-    def forward(self, pred, input, target, change):
+
+class Loss(nn.Module):
+    def __init__(self,
+                 weight_image_regularizer: float = 1.0,
+                 weight_l1: float = 2.0,
+                 weight_smooth: float = 5.0,
+                 channel: int = 1,
+                 dims: int = 3):
+        super().__init__()
+        if dims not in [2, 3]:
+            raise ValueError(f"{dims} dim input not supported!")
+
+        self.weight_image = weight_image_regularizer
+        self.weight_l1 = weight_l1
+        self.weight_smooth = weight_smooth
+
+        self.loss_fn = nn.CrossEntropyLoss()
+        self.image_reg = ImageRegularizer()
+        self.value_reg = L1Regularizer()
+        smooth_reg = SmoothRegularizer2D if dims == 2 else SmoothRegularizer3D
+        self.smooth_reg = smooth_reg(channel)
+
+    def forward(self,
+                pred: torch.Tensor,
+                target: torch.Tensor,
+                change: torch.Tensor,
+                new_image: torch.Tensor):
         # normal loss
-        loss = self.loss_fn(pred, target)
+        prediction_loss = self.loss_fn(pred, target)
 
         # penalize values out of image range
-        loss += torch.sum(self.relu(input - 1))
-        loss += torch.sum(self.relu(-input))
+        image_reg = self.image_reg(new_image)
 
-        # regularize
-        loss += self.l1_regularization(self.weight_l1, change)
-        loss += self.l2_regularization(self.weight_l2, change)
-        loss += self.magnitude(self.weight_magnitude, change)
-        loss += self.bi_modal_regularization(self.weight_bi_modal, change)
-        loss += self.try_regularization(self.weight_try, change)
+        # penalize high change values
+        value_reg = self.value_reg(change)
 
-        return loss
+        # regularize smoothness
+        smooth_reg = self.smooth_reg(change)
 
-    def l1_regularization(self, weight: float, change: torch.Tensor) -> torch.Tensor:
-        if weight == 0.0:
-            return torch.tensor(0.0)
+        loss = prediction_loss + image_reg * self.weight_image + value_reg * self.weight_l1 + smooth_reg * self.weight_smooth
 
-        return weight * torch.mean(torch.abs(change))
+        loss_dict = {
+            "loss": loss.detach().item(),
+            "prediction_loss": prediction_loss.detach().item(),
+            "image_reg": image_reg.detach().item(),
+            "value_reg": value_reg.detach().item(),
+            "smooth_reg": smooth_reg.detach().item(),
+        }
+        return loss, loss_dict
 
-    def l2_regularization(self, weight: float, change: torch.Tensor) -> torch.Tensor:
-        if weight == 0.0:
-            return torch.tensor(0.0)
 
-        return weight * torch.mean(change ** 2)
-
-    def magnitude(self, weight: float, change: torch.Tensor) -> torch.Tensor:
-        if weight == 0.0:
-            return torch.tensor(0.0)
-
-        dx = torch.conv2d(change[None], self.grad_x, groups=self.channel)
-        dy = torch.conv2d(change[None], self.grad_y, groups=self.channel)
-        return weight * (torch.mean(torch.abs(dx)) + torch.mean(torch.abs(dy)))
-
-    def bi_modal_regularization(self, weight: float, change: torch.Tensor) -> torch.Tensor:
-        if weight == 0.0:
-            return torch.tensor(0.0)
-
-        a = torch.abs(change) * (1 - torch.abs(change))
-        return weight * torch.mean(a)
-
-    def try_regularization(self, weight: float, change: torch.Tensor) -> torch.Tensor:
-        if weight == 0.0:
-            return torch.tensor(0.0)
-
-        max_values = torch.max_pool3d(change[None], kernel_size=(1, 3, 3), stride=1)
-        min_values = -torch.max_pool3d(-change[None], kernel_size=(1, 3, 3), stride=1)
-        difference = max_values - min_values
-
-        return weight * torch.mean(difference)
+if __name__ == '__main__':
+    loss = Loss(channel=2)
+    image = torch.randint(0, 255, (1, 256, 256, 256)) / 255
+    pred = torch.randn(1, 2, 256, 256, 256)
+    target = torch.randint(0, 1, (1, 256, 256, 256))
+    change = torch.randn(1, 2, 256, 256, 256)
+    new_image = image + change
+    out = loss(pred, target, change, new_image)
+    print(out)

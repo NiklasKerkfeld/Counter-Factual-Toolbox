@@ -1,5 +1,5 @@
 import os
-from typing import Mapping, Hashable, Optional
+from typing import Mapping, Hashable, Optional, Dict
 
 import numpy as np
 import torch
@@ -11,7 +11,7 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
 class SelectSliced(MapTransform):
-    def __init__(self, keys: KeysCollection, dim:int, slice: Optional[int] = None):
+    def __init__(self, keys: KeysCollection, dim: int, slice: Optional[int] = None):
         """
         Select a slice from the input data.
         :param dim: dimension to select.
@@ -70,34 +70,20 @@ class AddMissingd(MapTransform):
         return data
 
 
-def get_network(configuration: str, fold:int = 0):
-
+def get_network(configuration: str, fold: int = 0):
     predictor = nnUNetPredictor()
 
-    predictor.initialize_from_trained_model_folder(f"nnUNet/nnUNet_results/Dataset101_fcd/nnUNetTrainer__nnUNetPlans__{configuration}",
-                                                   str(fold),
-                                                   "checkpoint_best.pth")
+    predictor.initialize_from_trained_model_folder(
+        f"nnUNet/nnUNet_results/Dataset101_fcd/nnUNetTrainer__nnUNetPlans__{configuration}",
+        str(fold),
+        "checkpoint_best.pth")
 
     net = predictor.network
 
     return net
 
 
-def load_data(path: str, device:torch.device, slice=None):
-    loader = Compose([
-        LoadImaged(keys=['t1w', 'FLAIR', 'roi'],
-                   reader="NibabelReader",
-                   ensure_channel_first=True,
-                   allow_missing_keys=True),
-        AddMissingd(keys=['t1w', 'FLAIR', 'roi'], key_add='roi', ref='FLAIR'),
-        ResampleToMatchd(keys=['t1w', 'FLAIR'], key_dst='roi'),
-        SelectSliced(keys=['t1w', 'FLAIR', 'roi'], dim=2, slice=slice),
-        DivisiblePadd(keys=['t1w', 'FLAIR', 'roi'], k=32),
-        ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
-        ToTensord(keys=['tensor', 'roi']),
-        ToDeviced(keys=['tensor', 'roi'], device=device)
-    ])
-
+def get_image_files(path: str):
     name = os.path.basename(path)
     item = {
         't1w': f"{path}/anat/{name}_acq-iso08_T1w.nii.gz",
@@ -105,14 +91,45 @@ def load_data(path: str, device:torch.device, slice=None):
     }
     roi_path = f"{path}/anat/{name}_acq-T2sel_FLAIR_roi.nii.gz"
     if os.path.exists(roi_path):
-        item['roi'] = roi_path
-
-    item = loader(item)
+        item['target'] = roi_path
 
     return item
 
 
-def plot_results(t1w_image: torch.Tensor, roi: torch.Tensor, pred: torch.Tensor, slice: Optional[int]):
+def load_item(item: Dict[str, str],
+              device: Optional[torch.device] = None,
+              slice: Optional[int] = None):
+
+    device = device if device is not None else 'cpu'
+
+    loader = Compose([
+        LoadImaged(keys=['t1w', 'FLAIR', 'target'],
+                   reader="NibabelReader",
+                   ensure_channel_first=True,
+                   allow_missing_keys=True),
+        AddMissingd(keys=['t1w', 'FLAIR', 'target'], key_add='target', ref='FLAIR'),
+        ResampleToMatchd(keys=['target', 't1w', 'FLAIR'], key_dst='target'),
+        SelectSliced(keys=['t1w', 'FLAIR', 'target'], dim=2, slice=slice),
+        DivisiblePadd(keys=['t1w', 'FLAIR', 'target'], k=32),
+        ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
+        ToTensord(keys=['tensor', 'target']),
+        ToDeviced(keys=['tensor', 'target'], device=device)
+    ])
+
+    return loader(item)
+
+
+def load_data(path: str,
+              device: Optional[torch.device] = None,
+              slice: Optional[int] = None):
+    item = get_image_files(path)
+    item = load_item(item, device, slice)
+
+    return item
+
+
+def plot_results(t1w_image: torch.Tensor, roi: torch.Tensor, pred: torch.Tensor,
+                 slice: Optional[int]):
     """
     Saves a figure with three subplots:
     1. Ground truth ROI over T2-weighted image
@@ -159,6 +176,7 @@ def plot_results(t1w_image: torch.Tensor, roi: torch.Tensor, pred: torch.Tensor,
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+
     net = get_network(configuration='3d_fullres', fold=0)
     net = net.to('cuda:0')
 

@@ -1,30 +1,31 @@
 import json
 import os
-from typing import Dict, Union, List
+import time
+from typing import Dict, Union
 
 import numpy as np
 import torch
 
 
 class Logger:
-    def __init__(self, logging_path: str,
-                 images_paths: Dict[str, str],
-                 target_path: str):
+    def __init__(self, logging_path: str, images_paths: Dict[str, str], target_path: str):
         self.logging_path = logging_path
-        self.modalities = list(images_paths.keys())
 
         os.makedirs(self.logging_path)
         with open(f"{self.logging_path}/logs.json", 'w') as f:
-            json.dump({'images': {**images_paths, 'target': target_path}}, f)
+            json.dump({'name': os.path.basename(logging_path),
+                       'time': time.time(),
+                       'images': {**images_paths, 'target': target_path}}, f)
 
         with open(f"{self.logging_path}/loss.csv", "x") as f:
             f.write(f"step,key,value\n")
 
-    def log_change(self, change: Dict[str, Union[torch.tensor, np.ndarray]], step: int):
-        change = {key: value.numpy() if isinstance(value, torch.Tensor) else value for key, value in change.items()}
+    def log_change(self, step: int, change: Dict[str, Union[torch.tensor, np.ndarray]]):
+        change = {key: value.numpy() if isinstance(value, torch.Tensor) else value for key, value in
+                  change.items()}
         np.savez(f"{self.logging_path}/change_{step}.npz", **change)
 
-    def log_prediction(self, prediction: Union[torch.tensor, np.ndarray], step: int):
+    def log_prediction(self, step: int, prediction: Union[torch.tensor, np.ndarray]):
         prediction = prediction.numpy() if isinstance(prediction, torch.Tensor) else prediction
         np.save(f"{self.logging_path}/pred_{step}.npy", prediction)
 
@@ -53,7 +54,8 @@ if __name__ == '__main__':
         pred = torch.randint(0, 10_000, (160, 256, 256)) / 10_000
         logger.log_prediction(pred, step=i)
 
-        logger.log_values(step=i, loss=np.random.randn(1).item() ** 2, acc=np.random.randn(1).item() ** 2)
+        logger.log_values(step=i, loss=np.random.randn(1).item() ** 2,
+                          acc=np.random.randn(1).item() ** 2)
 
     for i in range(10):
         logger.log_values(step=i, test=np.random.randn(1).item() ** 2)
