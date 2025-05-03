@@ -74,7 +74,7 @@ def get_network(configuration: str, fold: int = 0):
     predictor = nnUNetPredictor()
 
     predictor.initialize_from_trained_model_folder(
-        f"data/Dataset101_fcd/nnUNetTrainer__nnUNetPlans__{configuration}",
+        f"models/Dataset101_fcd/nnUNetTrainer__nnUNetPlans__{configuration}",
         str(fold),
         "checkpoint_best.pth")
 
