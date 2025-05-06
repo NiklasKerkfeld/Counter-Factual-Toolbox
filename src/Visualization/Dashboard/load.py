@@ -43,17 +43,17 @@ class Loader:
 
         return self.images[folder]
 
-    def get_change(self, folder: str):
+    def get_change(self, folder: str, step: int, sequence: str):
         if folder not in self.changes.keys():
             self.changes[folder] = self.load_changes(f"{self.dataset_path}/{folder}")
 
-        return self.changes[folder]
+        return self.changes[folder][step][sequence]
 
-    def get_pred(self, folder: str):
+    def get_pred(self, folder: str, step: int):
         if folder not in self.preds.keys():
             self.preds[folder] = self.load_preds(f"{self.dataset_path}/{folder}")
 
-        return self.preds[folder]
+        return self.preds[folder][step]
 
     def get_steps(self, folder: str):
         if folder not in self.steps.keys():
@@ -98,18 +98,19 @@ class Loader:
         preds: Dict[int, np.ndarray] = {}
         for file in glob.glob(f'{folder}/pred_*.npy'):
             nr = int(os.path.basename(file)[5:-4])
-            preds[nr] = np.load(file)
+            preds[nr] = np.load(file)[0]
 
         return preds
 
     @staticmethod
-    def load_changes(folder: str) -> Dict[int, np.ndarray]:
+    def load_changes(folder: str) -> Dict[int, Dict[str, np.ndarray]]:
         changes: Dict[int, Dict[str, np.ndarray]] = {}
         for file in glob.glob(f'{folder}/*.npz'):
             nr = int(os.path.basename(file)[7:-4])
-            changes[nr] = np.load(file)
+            data = np.load(file)
+            changes[nr] = {key: data[key] for key in data.files}
 
         return changes
 
 
-loader = Loader("logs/new")
+loader = Loader("logs/Logger")

@@ -27,8 +27,6 @@ class Logger:
         np.savez(f"{self.logging_path}/change_{step}.npz", **change)
 
     def log_prediction(self, step: int, prediction: Union[torch.tensor, np.ndarray]):
-        print(f"logging prediction with shape: {prediction.shape}")
-        print(f"logging prediction with shape: {prediction.shape}")
         prediction = prediction.cpu().numpy() if isinstance(prediction, torch.Tensor) else prediction
         np.save(f"{self.logging_path}/pred_{step}.npy", prediction)
 

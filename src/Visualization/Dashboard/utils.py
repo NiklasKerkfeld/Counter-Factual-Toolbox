@@ -5,7 +5,7 @@ import matplotlib.cm as cm
 
 def blend_overlay(base: Image, target_mask_array: np.ndarray, cmap='Greens', alpha=0.5):
     # Normalize target mask and apply colormap (Greens)
-    target_mask_norm = (target_mask_array > 0).astype(np.uint8)
+    target_mask_norm = (target_mask_array > .05).astype(np.uint8)
     green_colormap = cm.get_cmap(cmap)
 
     # Apply colormap: returns RGBA float32 (0–1)

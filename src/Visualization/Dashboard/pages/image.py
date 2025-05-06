@@ -178,7 +178,7 @@ def get_image(dataset: str,
     image /= (value_range[1] + 1e-9)
 
     if apply_change:
-        image += loader.get_change(dataset)[step][sequence].take([slice], axis=dim).squeeze(
+        image += loader.get_change(dataset, step, sequence).take([slice], axis=dim).squeeze(
             axis=dim)
 
     image = (image * 255).astype(np.uint8)  # Normalize to 0-255
@@ -189,11 +189,11 @@ def get_image(dataset: str,
         img_pil = blend_overlay(img_pil, target)
 
     if show_pred:
-        pred = loader.get_pred(dataset)[step].take([slice], axis=dim).squeeze(axis=dim)
+        pred = loader.get_pred(dataset, step).take([slice], axis=dim).squeeze(axis=dim)
         img_pil = blend_overlay(img_pil, pred, cmap='Reds')
 
     if show_change:
-        change = loader.get_change(dataset)[step][sequence].take([slice], axis=dim).squeeze(
+        change = loader.get_change(dataset, step, sequence).take([slice], axis=dim).squeeze(
             axis=dim)
         img_pil = blend_overlay(img_pil, change, cmap='RdBu')
 
