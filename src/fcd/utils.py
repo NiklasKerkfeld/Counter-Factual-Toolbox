@@ -1,3 +1,4 @@
+import glob
 import os
 from typing import Mapping, Hashable, Optional, Dict
 
@@ -86,12 +87,12 @@ def get_network(configuration: str, fold: int = 0):
 def get_image_files(path: str):
     name = os.path.basename(path)
     item = {
-        't1w': f"{path}/anat/{name}_acq-iso08_T1w.nii.gz",
-        'FLAIR': f"{path}/anat/{name}_acq-T2sel_FLAIR.nii.gz"
+        't1w': glob.glob(f"{path}/anat/{name}*T1w.nii.gz")[0],
+        'FLAIR': glob.glob(f"{path}/anat/{name}*FLAIR.nii.gz")[0]
     }
-    roi_path = f"{path}/anat/{name}_acq-T2sel_FLAIR_roi.nii.gz"
-    if os.path.exists(roi_path):
-        item['target'] = roi_path
+    roi_paths = list(glob.glob(f"{path}/anat/{name}*FLAIR_roi.nii.gz"))
+    if len(roi_paths) > 0:
+        item['target'] = roi_paths[0]
 
     return item
 
