@@ -88,6 +88,9 @@ class Loss(nn.Module):
                 target: torch.Tensor,
                 change: torch.Tensor,
                 new_image: torch.Tensor):
+        print(f"{pred.shape=}")
+        print(f"{target.shape=}")
+
         # normal loss
         prediction_loss = self.loss_fn(pred, target)
 
