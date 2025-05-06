@@ -1,5 +1,4 @@
 import torch
-from monai.losses import DiceLoss
 from torch import nn
 
 
@@ -77,7 +76,7 @@ class Loss(nn.Module):
         self.weight_l1 = weight_l1
         self.weight_smooth = weight_smooth
 
-        self.loss_fn = DiceLoss(to_onehot_y=True, softmax=True)
+        self.loss_fn = nn.CrossEntropyLoss()
         # self.image_reg = ImageRegularizer()
         self.value_reg = L1Regularizer()
         smooth_reg = SmoothRegularizer2D if dims == 2 else SmoothRegularizer3D
