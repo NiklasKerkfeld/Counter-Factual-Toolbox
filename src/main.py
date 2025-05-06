@@ -20,6 +20,7 @@ def main(name: str, data_path: str):
 
     item = load_item(item)
     print(f"{item['tensor'].shape=}")
+    print(f"{item['target'].shape=}")
 
     model = get_network(configuration='3d_fullres', fold=0)
     framework = Framework(model, item['tensor'].shape, logger)
