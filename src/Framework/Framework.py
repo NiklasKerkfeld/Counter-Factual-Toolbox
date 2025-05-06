@@ -36,7 +36,7 @@ class Framework:
                  input_shape: Tuple[int, int, int],
                  logger: Logger,
                  device: Optional[torch.device] = None,
-                 lr: float = 1e-2,
+                 lr: float = 1e-1,
                  ):
 
         self.model = ModelWrapper(model, input_shape)
