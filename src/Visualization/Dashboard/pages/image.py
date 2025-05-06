@@ -184,18 +184,19 @@ def get_image(dataset: str,
     image = (image * 255).astype(np.uint8)  # Normalize to 0-255
     img_pil = Image.fromarray(image)
 
-    if show_target:
-        target = loader.get_image(dataset)['target'].take([slice], axis=dim).squeeze(axis=dim)
-        img_pil = blend_overlay(img_pil, target)
+    if show_change:
+        change = loader.get_change(dataset, step, sequence).take([slice], axis=dim).squeeze(
+            axis=dim)
+        img_pil = blend_overlay(img_pil, change, cmap='RdBu')
 
     if show_pred:
         pred = loader.get_pred(dataset, step).take([slice], axis=dim).squeeze(axis=dim)
         img_pil = blend_overlay(img_pil, pred, cmap='Reds')
 
-    if show_change:
-        change = loader.get_change(dataset, step, sequence).take([slice], axis=dim).squeeze(
-            axis=dim)
-        img_pil = blend_overlay(img_pil, change, cmap='RdBu')
+    if show_target:
+        target = loader.get_image(dataset)['target'].take([slice], axis=dim).squeeze(axis=dim)
+        img_pil = blend_overlay(img_pil, target)
+
 
     img_pil = pad(img_pil)
     img_pil.rotate(90)

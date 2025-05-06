@@ -57,8 +57,12 @@ class Loader:
 
     def get_steps(self, folder: str):
         if folder not in self.steps.keys():
-            self.steps[folder] = max([int(os.path.basename(file)[7:-4]) for file in
-                                      glob.glob(f"{self.dataset_path}/{folder}/change_*.npz")])
+            change_files = glob.glob(f"{self.dataset_path}/{folder}/change_*.npz")
+            if change_files:
+                self.steps[folder] = max(
+                    [int(os.path.basename(file)[7:-4]) for file in change_files])
+            else:
+                self.steps[folder] = 0
 
         return self.steps[folder]
 
