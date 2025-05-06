@@ -24,7 +24,7 @@ def main(name: str, data_path: str):
 
     model = get_network(configuration='3d_fullres', fold=0)
     framework = Framework(model, item['tensor'].shape, logger)
-    framework.process(item['tensor'][None], item['target'].long())
+    framework.process(item['tensor'][None], item['target'][None].long())
 
 
 def picai():
