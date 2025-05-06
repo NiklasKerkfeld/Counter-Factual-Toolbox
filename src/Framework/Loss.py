@@ -32,8 +32,6 @@ class SmoothRegularizer2D(nn.Module):
                             [-1 / 8, 1, -1 / 8],
                             [-1 / 8, -1 / 8, -1 / 8]]]]).repeat(channel, 1, 1, 1))
 
-        print(self.kernel.shape)
-
     def forward(self, x) -> torch.Tensor:
         return torch.mean(torch.abs(torch.conv2d(x, self.kernel, groups=self.channel)))
 
@@ -96,29 +94,29 @@ class Loss(nn.Module):
         # image_reg = self.image_reg(new_image)
 
         # penalize high change values
-        value_reg = self.value_reg(change)
+        # value_reg = self.value_reg(change)
 
         # regularize smoothness
-        smooth_reg = self.smooth_reg(change)
+        # smooth_reg = self.smooth_reg(change)
 
-        loss = prediction_loss + value_reg * self.weight_l1 + smooth_reg * self.weight_smooth
+        # loss = prediction_loss + value_reg * self.weight_l1 + smooth_reg * self.weight_smooth
 
         loss_dict = {
-            "loss": loss.detach().item(),
+            "loss": prediction_loss, # loss.detach().item(),
             "prediction_loss": prediction_loss.detach().item(),
             # "image_reg": image_reg.detach().item(),
-            "value_reg": value_reg.detach().item(),
-            "smooth_reg": smooth_reg.detach().item(),
+            "value_reg": 0.0, # value_reg.detach().item(),
+            "smooth_reg": 0.0 # smooth_reg.detach().item(),
         }
-        return loss, loss_dict
+        return prediction_loss, loss_dict
 
 
 if __name__ == '__main__':
-    loss = Loss(channel=2)
+    loss_fn = Loss(channel=2)
     image = torch.randint(0, 255, (1, 256, 256, 256)) / 255
     pred = torch.randn(1, 2, 256, 256, 256)
     target = torch.randint(0, 1, (1, 256, 256, 256))
     change = torch.randn(1, 2, 256, 256, 256)
     new_image = image + change
-    out = loss(pred, target, change, new_image)
+    out = loss_fn(pred, target, change, new_image)
     print(out)
