@@ -7,7 +7,7 @@ import torch
 from monai.config import KeysCollection
 from monai.data import MetaTensor
 from monai.transforms import LoadImaged, Compose, ResampleToMatchd, ToTensord, ConcatItemsd, \
-    MapTransform, ToDeviced, DivisiblePadd
+    MapTransform, ToDeviced, DivisiblePadd, NormalizeIntensityd
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
@@ -111,6 +111,7 @@ def load_item(item: Dict[str, str],
         AddMissingd(keys=['t1w', 'FLAIR', 'target'], key_add='target', ref='FLAIR'),
         ResampleToMatchd(keys=['target', 't1w', 'FLAIR'], key_dst='target'),
         SelectSliced(keys=['t1w', 'FLAIR', 'target'], dim=2, slice=slice),
+        NormalizeIntensityd(keys=['t1w', 'FLAIR']),
         DivisiblePadd(keys=['t1w', 'FLAIR', 'target'], k=32),
         ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
         ToTensord(keys=['tensor', 'target']),
