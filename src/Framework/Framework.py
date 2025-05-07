@@ -82,7 +82,7 @@ class Framework:
                 pred = torch.argmax(pred, dim=1, keepdim=True)
                 print(f"{pred.shape=}")
                 print(f"{mask.shape=}")
-                loss_dict['dice'] = self.metric(pred, mask)
+                loss_dict['dice'] = self.metric(pred, mask[None])
                 self.logger.log_values(self.step,
                                        **loss_dict,
                                        lr=self.optimizer.param_groups[0]['lr'])
