@@ -52,7 +52,7 @@ class Framework:
 
         print(f"device: {self.device}\n")
 
-        self.metric = DiceMetric(num_classes=2)
+        self.metric = DiceMetric(num_classes=1)
         self.logger = logger
         self.step = 0
 
@@ -78,6 +78,9 @@ class Framework:
 
             # logging
             if self.step == 1 or self.step % 10 == 0:
+                print(f"{pred.shape=}")
+                pred = torch.argmax(pred, dim=1)
+                print(f"{pred.shape=}")
                 loss_dict['dice'] = self.metric(pred, mask)
                 self.logger.log_values(self.step,
                                        **loss_dict,
