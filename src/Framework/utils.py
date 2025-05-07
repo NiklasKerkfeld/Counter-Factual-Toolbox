@@ -182,7 +182,7 @@ def dice(pred, target):
 
     intersection = torch.sum(torch.logical_and(pred, target))
 
-    return 2 + intersection / (torch.sum(pred) + torch.sum(target))
+    return (2 * intersection) / (torch.sum(pred) + torch.sum(target))
 
 
 if __name__ == "__main__":
