@@ -6,6 +6,7 @@ import monai.data
 import numpy as np
 import torch
 from monai.transforms import SaveImage
+from tqdm import tqdm
 
 from src.Framework.utils import get_network, load_data
 
@@ -26,7 +27,7 @@ def main(dataset_path: str):
 
     network.to(device)
 
-    for folder in dataset:
+    for folder in tqdm(dataset, desc='predicting'):
         item = load_data(folder, device)
         with torch.no_grad():
             pass
