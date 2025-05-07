@@ -176,6 +176,15 @@ def plot_results(t1w_image: torch.Tensor, roi: torch.Tensor, pred: torch.Tensor,
     plt.close()
 
 
+def dice(pred, target):
+    pred = pred.flatten()
+    target = target.flatten()
+
+    intersection = torch.sum(torch.logical_and(pred, target))
+
+    return 2 + intersection / (torch.sum(pred) + torch.sum(target))
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 

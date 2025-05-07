@@ -1,12 +1,12 @@
 from typing import Tuple, Optional
 
 import torch
-from monai.metrics import DiceMetric
 from torch import nn
 from tqdm import trange
 
 from src.Framework.Loss import Loss
 from src.Framework.config import STEPS, LR
+from src.Framework.utils import dice
 from src.Visualization.Logger import Logger
 
 
@@ -53,7 +53,6 @@ class Framework:
 
         print(f"device: {self.device}\n")
 
-        self.metric = DiceMetric(include_background=False, num_classes=1)
         self.logger = logger
         self.step = 0
         self.num_steps = steps
@@ -78,11 +77,8 @@ class Framework:
 
             # logging
             if self.step == 1 or self.step % 10 == 0:
-                pred = torch.argmax(pred, dim=1, keepdim=True)
-                print(pred.shape, pred.max(), pred.min())
-                self.metric(pred, mask[None])
-                loss_dict['dice'] = self.metric.aggregate("none").item()
-                self.metric.reset()
+                pred = torch.argmax(pred, dim=1)
+                loss_dict['dice'] = dice(pred, mask)
 
                 print(f"{self.step=}")
                 print(loss_dict)
