@@ -80,8 +80,8 @@ class Framework:
                 print(f"{self.step=}")
                 pred = torch.argmax(pred, dim=1)
 
-                print(f"{pred.shape=}, {pred.max()}, {pred.min()}")
-                print(f"{target.shape=}, {target.max()}, {target.min()}")
+                print(f"{pred.shape=}, {pred.max()}, {pred.min()}, {pred.sum()}")
+                print(f"{target.shape=}, {target.max()}, {target.min()}, {pred.sum()}")
 
                 print(f"intersection={torch.sum(torch.logical_and(pred, target))}")
 
