@@ -57,31 +57,33 @@ class Framework:
         self.step = 0
         self.num_steps = steps
 
-    def process(self, image: torch.Tensor, mask: torch.Tensor) -> None:
+    def process(self, image: torch.Tensor, target: torch.Tensor) -> None:
         self.model.eval()
 
         self.model.to(self.device)
         self.loss_fn.to(self.device)
 
         image_gpu = image.to(self.device)
-        mask = mask.to(self.device)
+        target = target.to(self.device)
 
         bar = trange(1, self.num_steps + 1)
         for self.step in bar:
             # process
             self.optimizer.zero_grad()
             pred, model_input = self.model(image_gpu)
-            loss, loss_dict = self.loss_fn(pred, mask, self.model.change, model_input)
+            loss, loss_dict = self.loss_fn(pred, target, self.model.change, model_input)
             loss.backward()
             self.optimizer.step()
 
             # logging
             if self.step == 1 or self.step % 10 == 0:
-                pred = torch.argmax(pred, dim=1)
-                loss_dict['dice'] = dice(pred, mask)
-
                 print(f"{self.step=}")
-                print(f"intersection={torch.sum(torch.logical_and(pred, mask))}")
+                pred = torch.argmax(pred, dim=1)
+
+                print(f"intersection={torch.sum(torch.logical_and(pred, target))}")
+
+                loss_dict['dice'] = dice(pred, target)
+
                 print(loss_dict)
                 print()
 
