@@ -81,6 +81,7 @@ class Framework:
                 loss_dict['dice'] = dice(pred, mask)
 
                 print(f"{self.step=}")
+                print(f"intersection={torch.sum(torch.logical_and(pred, mask))}")
                 print(loss_dict)
                 print()
 
