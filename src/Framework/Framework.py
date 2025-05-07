@@ -6,6 +6,7 @@ from torch import nn
 from tqdm import trange
 
 from src.Framework.Loss import Loss
+from src.Framework.config import STEPS, LR
 from src.Visualization.Logger import Logger
 
 
@@ -37,13 +38,13 @@ class Framework:
                  input_shape: Tuple[int, int, int],
                  logger: Logger,
                  device: Optional[torch.device] = None,
-                 lr: float = 1e-1,
+                 lr: float = LR,
+                 steps: int = STEPS
                  ):
 
         self.model = ModelWrapper(model, input_shape)
         self.loss_fn = Loss(channel=input_shape[0])
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 20_000, gamma=0.1)
 
         if device is not None:
             self.device = device
@@ -55,6 +56,7 @@ class Framework:
         self.metric = DiceMetric(num_classes=1)
         self.logger = logger
         self.step = 0
+        self.num_steps = steps
 
     def process(self, image: torch.Tensor, mask: torch.Tensor) -> None:
         self.model.eval()
@@ -65,7 +67,7 @@ class Framework:
         image_gpu = image.to(self.device)
         mask = mask.to(self.device)
 
-        bar = trange(1, 101)
+        bar = trange(1, self.num_steps + 1)
         for self.step in bar:
             # process
             self.optimizer.zero_grad()
@@ -73,8 +75,6 @@ class Framework:
             loss, loss_dict = self.loss_fn(pred, mask, self.model.change, model_input)
             loss.backward()
             self.optimizer.step()
-
-            self.lr_scheduler.step()
 
             # logging
             if self.step == 1 or self.step % 10 == 0:

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd
 
-from src.fcd.utils import AddMissingd
+from src.Framework.utils import AddMissingd
 
 
 class Loader:
@@ -27,6 +27,17 @@ class Loader:
                        allow_missing_keys=True),
             AddMissingd(keys=['t1w', 'FLAIR', 'target'], key_add='target', ref='FLAIR'),
             ResampleToMatchd(keys=['t1w', 'FLAIR'], key_dst='target')])
+
+        self.images = {}
+        self.changes = {}
+        self.preds = {}
+        self.steps = {}
+
+    def reload(self):
+        self.dataset_paths = sorted(
+            [path for path in glob.glob(f"{self.dataset_path}/*") if os.path.isdir(path)])
+
+        self.value_data = self.load_dataset(self.dataset_paths)
 
         self.images = {}
         self.changes = {}
@@ -59,10 +70,9 @@ class Loader:
         if folder not in self.steps.keys():
             change_files = glob.glob(f"{self.dataset_path}/{folder}/change_*.npz")
             if change_files:
-                self.steps[folder] = max(
-                    [int(os.path.basename(file)[7:-4]) for file in change_files])
+                self.steps[folder] = [int(os.path.basename(file)[7:-4]) for file in change_files]
             else:
-                self.steps[folder] = 0
+                self.steps[folder] = []
 
         return self.steps[folder]
 

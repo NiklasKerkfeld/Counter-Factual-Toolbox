@@ -96,7 +96,7 @@ def build_image_block(dataset):
                     data=[]),
                 dcc.Store(
                     id={'type': 'step-store', 'index': dataset, 'orientation': orientation},
-                    data=steps)
+                    data=max(steps + [0]))
             ])
         )
 
@@ -125,11 +125,11 @@ def build_image_block(dataset):
                 html.Div(
                     dcc.Slider(
                         id={'type': 'step-slider', 'index': dataset},
-                        min=1,
-                        max=steps,
-                        step=1,
-                        value=steps,
-                        marks={0: '0', steps: str(steps)},
+                        min=0,
+                        max=max(steps + [0]),
+                        step=None,  # disables arbitrary steps
+                        marks={s: str(s) for s in steps},
+                        value=max(steps + [0]),
                         tooltip={'placement': 'bottom'}
                     ), style={'flex': '1'}
                 )

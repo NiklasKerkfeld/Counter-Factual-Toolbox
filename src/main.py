@@ -5,7 +5,7 @@ import torch
 from src.Framework.Framework import Framework
 from src.Model.model import SimpleUNet
 from src.Picai.utils import load_image
-from src.fcd.utils import get_network, get_image_files, load_item
+from src.Framework.utils import get_network, get_image_files, load_item
 from src.Visualization.Logger import Logger
 
 
@@ -71,6 +71,7 @@ def get_args() -> argparse.Namespace:
 
 if __name__ == '__main__':
     args = get_args()
+    print(f"{args=}")
 
     main(name=args.name,
          data_path=args.path)
