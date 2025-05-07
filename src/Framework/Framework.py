@@ -79,6 +79,7 @@ class Framework:
             # logging
             if self.step == 1 or self.step % 10 == 0:
                 pred = torch.argmax(pred, dim=1, keepdim=True)
+                print(pred.shape, pred.max(), pred.min())
                 self.metric(pred, mask[None])
                 loss_dict['dice'] = self.metric.aggregate("none").item()
                 self.metric.reset()
