@@ -79,7 +79,10 @@ class Framework:
             # logging
             if self.step == 1 or self.step % 10 == 0:
                 pred = torch.argmax(pred, dim=1, keepdim=True)
-                loss_dict['dice'] = self.metric(pred, mask[None]).cpu().item()
+                self.metric(pred, mask[None])
+                loss_dict['dice'] = self.metric.aggregate().item()
+                self.metric.reset()
+
                 print(f"{self.step=}")
                 print(loss_dict)
                 print()
@@ -94,5 +97,3 @@ class Framework:
 
             bar.set_description(
                 f"loss: {round(loss.detach().cpu().item(), 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 10)}")
-
-            del loss
