@@ -12,7 +12,10 @@ from src.Framework.utils import get_network, load_data
 
 
 def save(image: torch.Tensor, path: str, example: monai.data.MetaTensor):
-        save_image = SaveImage(output_dir=path, output_postfix='pred', output_dtype=np.int8)
+        save_image = SaveImage(output_dir=path,
+                               output_postfix='pred',
+                               output_dtype=np.int8,
+                               separate_folder=False)
         output_image = deepcopy(example)
         output_image.set_array(image)
 
