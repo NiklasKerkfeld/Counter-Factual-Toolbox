@@ -78,6 +78,7 @@ class Framework:
             # logging
             if self.step == 1 or self.step % 10 == 0:
                 print(f"{self.step=}")
+                print(f"{pred.shape=}, {pred.max()}, {pred.min()}")
                 pred = torch.argmax(pred, dim=1)
 
                 print(f"{pred.shape=}, {pred.max()}, {pred.min()}, {pred.sum()}")
