@@ -1,6 +1,7 @@
 from typing import Tuple, Optional
 
 import torch
+from monai.metrics import DiceMetric
 from torch import nn
 from tqdm import trange
 
@@ -51,6 +52,7 @@ class Framework:
 
         print(f"device: {self.device}\n")
 
+        self.metric = DiceMetric(num_classes=2)
         self.logger = logger
         self.step = 0
 
@@ -63,7 +65,7 @@ class Framework:
         image_gpu = image.to(self.device)
         mask = mask.to(self.device)
 
-        bar = trange(1, 10_001)
+        bar = trange(1, 101)
         for self.step in bar:
             # process
             self.optimizer.zero_grad()
@@ -75,15 +77,15 @@ class Framework:
             self.lr_scheduler.step()
 
             # logging
-            if self.step == 1 or self.step % 100 == 0:
+            if self.step == 1 or self.step % 10 == 0:
+                loss_dict['dice'] = self.metric(pred, mask)
                 self.logger.log_values(self.step,
                                        **loss_dict,
                                        lr=self.optimizer.param_groups[0]['lr'])
 
-                if self.step % 1_000 == 0:
-                    change = self.model.change.detach()
-                    self.logger.log_change(self.step, change)
-                    self.logger.log_prediction(self.step, self.model.predict(image_gpu + change))
+                change = self.model.change.detach()
+                self.logger.log_change(self.step, change)
+                self.logger.log_prediction(self.step, self.model.predict(image_gpu + change))
 
             bar.set_description(
                 f"loss: {round(loss.detach().cpu().item(), 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 10)}")
