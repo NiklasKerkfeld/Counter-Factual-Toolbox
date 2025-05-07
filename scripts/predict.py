@@ -31,7 +31,7 @@ def main(dataset_path: str):
         item = load_data(folder, device)
         with torch.no_grad():
             pass
-            pred = network(item['tensor'])
+            pred = network(item['tensor'][None])
             pred = torch.nn.functional.softmax(pred, dim=1)[:, 1] > .5
 
         save(pred, f"{folder}/anat", item['target'])
