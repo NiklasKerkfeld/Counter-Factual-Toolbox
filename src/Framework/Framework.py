@@ -78,11 +78,8 @@ class Framework:
 
             # logging
             if self.step == 1 or self.step % 10 == 0:
-                print(f"{pred.shape=}")
                 pred = torch.argmax(pred, dim=1, keepdim=True)
-                print(f"{pred.shape=}")
-                print(f"{mask.shape=}")
-                loss_dict['dice'] = self.metric(pred, mask[None])
+                loss_dict['dice'] = self.metric(pred, mask[None]).cpu().value()
                 self.logger.log_values(self.step,
                                        **loss_dict,
                                        lr=self.optimizer.param_groups[0]['lr'])
