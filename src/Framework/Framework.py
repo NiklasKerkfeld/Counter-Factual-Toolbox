@@ -80,6 +80,9 @@ class Framework:
                 print(f"{self.step=}")
                 pred = torch.argmax(pred, dim=1)
 
+                print(f"{pred.shape=}, {pred.max()}, {pred.min()}")
+                print(f"{target.shape=}, {target.max()}, {target.min()}")
+
                 print(f"intersection={torch.sum(torch.logical_and(pred, target))}")
 
                 loss_dict['dice'] = dice(pred, target)
