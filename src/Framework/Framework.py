@@ -70,7 +70,7 @@ class Framework:
         for self.step in bar:
             # process
             self.optimizer.zero_grad()
-            change = self.model.change.detach()
+            change = torch.clone(self.model.change.detach())
             pred, model_input = self.model(image_gpu)
             loss, loss_dict = self.loss_fn(pred, target, self.model.change, model_input)
             loss.backward()
