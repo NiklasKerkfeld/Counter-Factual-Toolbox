@@ -95,9 +95,11 @@ class Loss(nn.Module):
         value_reg = self.value_reg(change)
 
         # regularize smoothness
-        # smooth_reg = self.smooth_reg(change)
+        smooth_reg = self.smooth_reg(change)
 
-        loss = prediction_loss + value_reg * self.weight_l1
+        loss = (prediction_loss +
+                value_reg * self.weight_l1 +
+                smooth_reg * self.weight_smooth)
 
         loss_dict = {
             "loss": loss.detach().item(),
