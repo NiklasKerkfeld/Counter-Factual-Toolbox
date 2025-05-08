@@ -58,7 +58,7 @@ class Framework:
         self.num_steps = steps
 
     def process(self, image: torch.Tensor, target: torch.Tensor) -> None:
-        self.model.eval()
+        self.model.model.eval()
 
         self.model.to(self.device)
         self.loss_fn.to(self.device)
@@ -68,9 +68,10 @@ class Framework:
 
         bar = trange(self.num_steps + 1)
         for self.step in bar:
+            if self.step == 1 or self.step % 10 == 0:
+                self.logger.log_change(self.step, self.model.change)
             # process
             self.optimizer.zero_grad()
-            change = torch.clone(self.model.change.detach())
             pred, model_input = self.model(image_gpu)
             loss, loss_dict = self.loss_fn(pred, target, self.model.change, model_input)
             loss.backward()
@@ -85,7 +86,6 @@ class Framework:
                                        **loss_dict,
                                        lr=self.optimizer.param_groups[0]['lr'])
 
-                self.logger.log_change(self.step, change)
                 self.logger.log_prediction(self.step, pred)
 
             bar.set_description(
