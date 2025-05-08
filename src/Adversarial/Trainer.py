@@ -81,7 +81,6 @@ class Trainer:
         self.gen_loss = nn.CrossEntropyLoss()
         self.adv_loss = nn.MSELoss()
 
-
     def train(self, epochs: int):
         for epoch in range(epochs):
             self.train_epoch()
@@ -92,7 +91,8 @@ class Trainer:
         dataloader = DataLoader(self.dataset, batch_size=16, shuffle=True)
 
         for batch in dataloader:
-            pass
+            pprint(batch)
+            exit(0)
             # TODO: training stuff
 
     def generate_dataset(self):
@@ -131,5 +131,8 @@ if __name__ == '__main__':
     item = dataset[0]
 
     pprint(item)
+    print()
 
-    pass
+    trainer = Trainer(adversarial, generator, dataset)
+    trainer.train(10)
+
