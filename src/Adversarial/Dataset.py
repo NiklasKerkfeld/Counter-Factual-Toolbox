@@ -4,7 +4,7 @@ import os
 import numpy as np
 import torch
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd, NormalizeIntensityd, \
-    DivisiblePadd, ConcatItemsd, ToTensord
+    DivisiblePadd, ConcatItemsd, ToTensord, DeleteItemsd
 from torch.utils.data import Dataset
 
 from src.Framework.utils import get_image_files, save, AddMissingd
@@ -18,7 +18,8 @@ train_transformations = Compose([
     NormalizeIntensityd(keys=['t1w', 'FLAIR']),
     DivisiblePadd(keys=['t1w', 'FLAIR', 'change'], k=32),
     ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
-    ToTensord(keys=['tensor', 'change'])
+    ToTensord(keys=['tensor', 'change']),
+    DeleteItemsd(keys=['t1w', 'FLAIR'])
 ])
 
 generate_transformations = Compose([
@@ -31,7 +32,8 @@ generate_transformations = Compose([
     NormalizeIntensityd(keys=['t1w', 'FLAIR']),
     DivisiblePadd(keys=['t1w', 'FLAIR', 'target'], k=32),
     ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
-    ToTensord(keys=['tensor', 'target'])
+    ToTensord(keys=['tensor', 'target']),
+    DeleteItemsd(keys=['t1w', 'FLAIR'])
 ])
 
 
