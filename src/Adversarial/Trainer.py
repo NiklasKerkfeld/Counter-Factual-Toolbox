@@ -9,6 +9,7 @@ from monai.networks.nets import BasicUnet
 from torch import nn
 from torch.utils.data import Dataset
 
+from src.Adversarial.Dataset import CacheDataset
 from src.Framework.utils import get_image_files, save, get_network
 
 
@@ -37,32 +38,6 @@ class ModelWrapper(nn.Module):
         adversarial = self.adversarial(new_image)
 
         return segmentation, adversarial
-
-
-class CacheDataset(Dataset):
-    def __init__(self, source_folder: str, init_folder: str, cache_folder: str):
-        self.init_folder = init_folder
-        self.cache_folder = cache_folder
-        os.makedirs(self.cache_folder, exist_ok=True)
-
-        folders = glob.glob(f"{source_folder}/sub-*")
-        self.dataset = []
-        for idx, path in enumerate(folders):
-            item = get_image_files(path)
-            item['idx'] = idx
-            item['change'] = glob.glob(f"{init_folder}/{os.path.basename(path)}/*change.nii.gz")[0]
-            self.dataset.append(item)
-
-    def change_change(self, idx: int, change: torch.Tensor):
-        item = self.dataset[idx]
-        save(change, f"{self.cache_folder}/change_{idx}", item['target'], dtype=np.float32)
-        item['change'] = f"{self.cache_folder}/change_{idx}.nii.gz"
-
-    def __len__(self):
-        return len(self.dataset)
-
-    def __getitem__(self, idx: int):
-        return self.dataset[idx]
 
 
 class Trainer:
