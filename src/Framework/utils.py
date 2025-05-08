@@ -131,10 +131,10 @@ def load_data(path: str,
     return item
 
 
-def save(image: torch.Tensor, path: str, example: monai.data.MetaTensor, dtype = np.int8):
+def save(image: torch.Tensor, path: str, example: monai.data.MetaTensor, post_fix:str = 'pred', dtype = np.int8):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     save_image = SaveImage(output_dir=path,
-                           output_postfix='pred',
+                           output_postfix=post_fix,
                            output_dtype=dtype,
                            separate_folder=False)
     output_image = deepcopy(example)
