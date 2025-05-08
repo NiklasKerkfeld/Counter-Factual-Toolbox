@@ -1,4 +1,6 @@
 LR = 1e-2
 STEPS = 100
+L1 = 1.0
+SMOOTH = 1.0
 
 

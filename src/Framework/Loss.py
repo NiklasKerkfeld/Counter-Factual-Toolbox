@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 
+from src.Framework.config import L1, SMOOTH
+
 
 class SmoothRegularizer3D(nn.Module):
     def __init__(self, channel: int):
@@ -64,8 +66,8 @@ class ImageRegularizer(nn.Module):
 class Loss(nn.Module):
     def __init__(self,
                  weight_image_regularizer: float = 1.0,
-                 weight_l1: float = 200.0,
-                 weight_smooth: float = 500.0,
+                 weight_l1: float = L1,
+                 weight_smooth: float = SMOOTH,
                  channel: int = 1,
                  dims: int = 3):
         super().__init__()
@@ -77,7 +79,6 @@ class Loss(nn.Module):
         self.weight_smooth = weight_smooth
 
         self.loss_fn = nn.CrossEntropyLoss()
-        # self.image_reg = ImageRegularizer()
         self.value_reg = L1Regularizer()
         smooth_reg = SmoothRegularizer2D if dims == 2 else SmoothRegularizer3D
         self.smooth_reg = smooth_reg(channel)
@@ -90,25 +91,22 @@ class Loss(nn.Module):
         # normal loss
         prediction_loss = self.loss_fn(pred, target)
 
-        # penalize values out of image range
-        # image_reg = self.image_reg(new_image)
-
         # penalize high change values
-        # value_reg = self.value_reg(change)
+        value_reg = self.value_reg(change)
 
         # regularize smoothness
         # smooth_reg = self.smooth_reg(change)
 
-        # loss = prediction_loss + value_reg * self.weight_l1 + smooth_reg * self.weight_smooth
+        loss = prediction_loss + value_reg * self.weight_l1
 
         loss_dict = {
-            "loss": prediction_loss, # loss.detach().item(),
+            "loss": loss.detach().item(),
             "prediction_loss": prediction_loss.detach().item(),
             # "image_reg": image_reg.detach().item(),
-            "value_reg": 0.0, # value_reg.detach().item(),
+            "value_reg": value_reg.detach().item(),
             "smooth_reg": 0.0 # smooth_reg.detach().item(),
         }
-        return prediction_loss, loss_dict
+        return loss, loss_dict
 
 
 if __name__ == '__main__':
