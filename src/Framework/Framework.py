@@ -66,7 +66,7 @@ class Framework:
         image_gpu = image.to(self.device)
         target = target.to(self.device)
 
-        bar = trange(1, self.num_steps + 1)
+        bar = trange(self.num_steps + 1)
         for self.step in bar:
             # process
             self.optimizer.zero_grad()
@@ -77,19 +77,8 @@ class Framework:
 
             # logging
             if self.step == 1 or self.step % 10 == 0:
-                print(f"{self.step=}")
-                print(f"{pred.shape=}, {pred.max()}, {pred.min()}")
                 pred = torch.argmax(pred, dim=1)
-
-                print(f"{pred.shape=}, {pred.max()}, {pred.min()}, {pred.sum()}")
-                print(f"{target.shape=}, {target.max()}, {target.min()}, {target.sum()}")
-
-                print(f"intersection={torch.sum(torch.logical_and(pred, target))}")
-
                 loss_dict['dice'] = dice(pred, target)
-
-                print(loss_dict)
-                print()
 
                 self.logger.log_values(self.step,
                                        **loss_dict,
@@ -97,7 +86,7 @@ class Framework:
 
                 change = self.model.change.detach()
                 self.logger.log_change(self.step, change)
-                self.logger.log_prediction(self.step, self.model.predict(image_gpu + change))
+                self.logger.log_prediction(self.step, pred)
 
             bar.set_description(
                 f"loss: {round(loss.detach().cpu().item(), 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 10)}")
