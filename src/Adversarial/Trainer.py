@@ -9,7 +9,6 @@ from monai.networks.nets import BasicUnet
 from torch import nn
 from torch.utils.data import Dataset
 
-from src.Framework.Framework import ModelWrapper
 from src.Framework.utils import get_image_files, save, get_network
 
 
@@ -40,9 +39,9 @@ class ModelWrapper(nn.Module):
         return segmentation, adversarial
 
 
-
 class CacheDataset(Dataset):
-    def __init__(self, source_folder: str, cache_folder: str):
+    def __init__(self, source_folder: str, init_folder: str, cache_folder: str):
+        self.init_folder = init_folder
         self.cache_folder = cache_folder
         os.makedirs(self.cache_folder, exist_ok=True)
 
@@ -51,7 +50,7 @@ class CacheDataset(Dataset):
         for idx, folder in enumerate(folders):
             item = get_image_files(folder)
             item['idx'] = idx
-            item['change'] = None
+            item['change'] = glob.glob(f"{init_folder}/{folder}/*.nii.gz")[0]
             self.dataset.append(item)
 
     def change_change(self, idx: int, change: torch.Tensor):
@@ -117,8 +116,8 @@ class Trainer:
             self.dataset.change_change(item['idx'], model.change.data)
 
 
-
 if __name__ == '__main__':
+    from pprint import pprint
     generator = get_network(configuration='3d_fullres', fold=0)
     adversarial = BasicUnet(spatial_dims=3,
                             features=(32, 32, 64, 128, 256, 32),
@@ -126,8 +125,11 @@ if __name__ == '__main__':
                             out_channels=1)
 
     dataset = CacheDataset("data/Dataset101_fcd",
+                           "data/change",
                            "data/cache")
 
     item = dataset[0]
+
+    pprint(item)
 
     pass

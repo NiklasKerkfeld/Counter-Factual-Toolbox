@@ -24,7 +24,7 @@ def main(dataset_path: str, output_path: str):
         framework = Framework(model, item['tensor'].shape, device=device)
         change = framework.generate(item['tensor'][None], item['target'].long())
 
-        save(change, f"{output_path}/folder", item['target'], post_fix='change', dtype=np.float32)
+        save(change, f"{output_path}/{folder}", item['target'], post_fix='change', dtype=np.float32)
 
 
 if __name__ == '__main__':

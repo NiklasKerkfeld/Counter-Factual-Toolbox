@@ -97,7 +97,6 @@ class Framework:
             bar.set_description(
                 f"loss: {round(loss.detach().cpu().item(), 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 10)}")
 
-
     def generate(self, image: torch.Tensor, target: torch.Tensor):
         self.model.model.eval()
 
@@ -111,7 +110,7 @@ class Framework:
             # process
             self.optimizer.zero_grad()
             pred = self.model(image_gpu)
-            loss, loss_dict = self.loss_fn(pred, target, self.model.change)
+            loss, _ = self.loss_fn(pred, target, self.model.change)
             loss.backward()
             self.optimizer.step()
 
