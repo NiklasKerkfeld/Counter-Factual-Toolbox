@@ -19,7 +19,7 @@ train_transformations = Compose([
     DivisiblePadd(keys=['t1w', 'FLAIR', 'change'], k=32),
     ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
     ToTensord(keys=['tensor', 'change']),
-    DeleteItemsd(keys=['t1w', 'FLAIR'])
+    DeleteItemsd(keys=['t1w', 'FLAIR', 'target'])
 ])
 
 generate_transformations = Compose([
@@ -33,7 +33,7 @@ generate_transformations = Compose([
     DivisiblePadd(keys=['t1w', 'FLAIR', 'target'], k=32),
     ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
     ToTensord(keys=['tensor', 'target']),
-    DeleteItemsd(keys=['t1w', 'FLAIR'])
+    DeleteItemsd(keys=['t1w', 'FLAIR', 'change'])
 ])
 
 
