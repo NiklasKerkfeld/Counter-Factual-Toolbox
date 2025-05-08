@@ -1,7 +1,8 @@
 import glob
 import json
 import os
-from typing import Dict
+import threading
+from typing import Dict, Tuple, List
 
 import numpy as np
 import pandas as pd
@@ -29,9 +30,16 @@ class Loader:
             ResampleToMatchd(keys=['t1w', 'FLAIR'], key_dst='target')])
 
         self.images = {}
+        self.scales = {}
         self.changes = {}
         self.preds = {}
         self.steps = {}
+
+        # Lock per folder
+        self.image_locks: Dict[str, threading.Lock] = {}
+        self.change_locks: Dict[str, threading.Lock] = {}
+        self.pred_locks: Dict[str, threading.Lock] = {}
+        self.global_lock = threading.Lock()
 
     def reload(self):
         self.dataset_paths = sorted(
@@ -40,6 +48,7 @@ class Loader:
         self.value_data = self.load_dataset(self.dataset_paths)
 
         self.images = {}
+        self.scales = {}
         self.changes = {}
         self.preds = {}
         self.steps = {}
@@ -48,25 +57,53 @@ class Loader:
     def runs(self):
         return self.dataset_folders
 
-    def get_image(self, folder: str):
-        if folder not in self.images.keys():
-            self.images[folder] = self.load_image(f"{self.dataset_path}/{folder}")
+    def get_image(self, folder: str) -> Dict[str, np.ndarray]:
+        with self.global_lock:
+            self.image_locks[folder] = threading.Lock()
+
+        with self.image_locks[folder]:
+            if folder not in self.images.keys():
+                print(f"Loading image for folder: {folder}")
+                self.images[folder], self.scales[folder] = self.load_image(
+                    f"{self.dataset_path}/{folder}")
+            else:
+                print(f"Using cached image for folder: {folder}")
 
         return self.images[folder]
 
-    def get_change(self, folder: str, step: int, sequence: str):
-        if folder not in self.changes.keys():
-            self.changes[folder] = self.load_changes(f"{self.dataset_path}/{folder}")
+    def get_change(self, folder: str, step: int, sequence: str) -> np.ndarray:
+        with self.global_lock:
+            self.change_locks[folder] = threading.Lock()
+
+        with self.change_locks[folder]:
+            if folder not in self.changes.keys():
+                print(f"Loading change for folder: {folder}")
+                self.changes[folder] = self.load_changes(f"{self.dataset_path}/{folder}")
+            else:
+                print(f"Using cached change for folder: {folder}")
 
         return self.changes[folder][step][sequence]
 
-    def get_pred(self, folder: str, step: int):
-        if folder not in self.preds.keys():
-            self.preds[folder] = self.load_preds(f"{self.dataset_path}/{folder}")
+    def get_changed_image(self, folder: str, step: int, sequence: str) -> np.ndarray:
+        image = self.get_image(folder)
+        change = self.get_change(folder, step, sequence)
+
+        return image[sequence] + (change * self.scales[folder][sequence][1])
+
+    def get_pred(self, folder: str, step: int) -> np.ndarray:
+        with self.global_lock:
+            self.pred_locks[folder] = threading.Lock()
+
+        with self.pred_locks[folder]:
+            if folder not in self.preds.keys():
+                print(f"Loading pred for folder: {folder}")
+                self.preds[folder] = self.load_preds(f"{self.dataset_path}/{folder}")
+            else:
+                print(f"Using cached pred for folder: {folder}")
 
         return self.preds[folder][step]
 
-    def get_steps(self, folder: str):
+    def get_steps(self, folder: str) -> List[int]:
         if folder not in self.steps.keys():
             change_files = glob.glob(f"{self.dataset_path}/{folder}/change_*.npz")
             if change_files:
@@ -77,7 +114,7 @@ class Loader:
         return self.steps[folder]
 
     @staticmethod
-    def load_dataset(folders):
+    def load_dataset(folders) -> pd.DataFrame:
         # Load dataset folders dynamically
         all_data = []
 
@@ -99,13 +136,17 @@ class Loader:
 
         return combined_df
 
-    def load_image(self, folder: str) -> Dict[str, np.ndarray]:
+    def load_image(self, folder: str) -> Tuple[
+        Dict[str, np.ndarray], Dict[str, Tuple[float, float]]]:
         with open(f"{folder}/logs.json") as f:
             item = json.load(f)
 
         images = self.mri_loader(item['images'])
+        image = {key: value[0].numpy() for key, value in images.items()}
+        scaling = {key: (value.mean(), value.std()) for key, value in image.items()}
 
-        return {key: value[0].numpy() for key, value in images.items()}
+        print(f"loaded images from {folder}")
+        return image, scaling
 
     @staticmethod
     def load_preds(folder: str) -> Dict[int, np.ndarray]:
@@ -114,16 +155,17 @@ class Loader:
             nr = int(os.path.basename(file)[5:-4])
             preds[nr] = np.load(file)[0]
 
+        print(f"loaded predictions from {folder}.")
         return preds
 
-    @staticmethod
-    def load_changes(folder: str) -> Dict[int, Dict[str, np.ndarray]]:
+    def load_changes(self, folder: str) -> Dict[int, Dict[str, np.ndarray]]:
         changes: Dict[int, Dict[str, np.ndarray]] = {}
         for file in glob.glob(f'{folder}/*.npz'):
             nr = int(os.path.basename(file)[7:-4])
             data = np.load(file)
             changes[nr] = {key: data[key] for key in data.files}
 
+        print(f"loaded changes from {folder}.")
         return changes
 
 

@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.cm as cm
 
 
-def blend_overlay(base: Image, target_mask_array: np.ndarray, cmap='Greens', alpha=0.5):
+def blend_segmentation(base: Image, target_mask_array: np.ndarray, cmap='Greens', alpha=0.5):
     # Normalize target mask and apply colormap (Greens)
-    target_mask_norm = (target_mask_array > .05).astype(np.uint8)
+    target_mask_norm = (target_mask_array > .5).astype(np.uint8)
     green_colormap = cm.get_cmap(cmap)
 
     # Apply colormap: returns RGBA float32 (0–1)
@@ -20,6 +20,25 @@ def blend_overlay(base: Image, target_mask_array: np.ndarray, cmap='Greens', alp
     # Composite colored mask over base image
     blended = Image.alpha_composite(base.convert("RGBA"), colored)
     return blended
+
+
+def blend_change(base: Image, change: np.ndarray, cmap='RdBu', alpha=0.5):
+    # Normalize target mask and apply colormap (Greens)
+    green_colormap = cm.get_cmap(cmap)
+
+    # Apply colormap: returns RGBA float32 (0–1)
+    colored_mask = (green_colormap(change)[:, :, :3] * 255).astype(np.uint8)
+    colored = Image.fromarray(colored_mask).convert("RGBA")
+
+    # Create alpha mask where target is non-zero
+    alpha_mask = (change * int(alpha * 255)).astype(np.uint8)
+    alpha_mask_img = Image.fromarray(alpha_mask)
+    colored.putalpha(alpha_mask_img)
+
+    # Composite colored mask over base image
+    blended = Image.alpha_composite(base.convert("RGBA"), colored)
+    return blended
+
 
 
 def pad(img: Image) -> Image:

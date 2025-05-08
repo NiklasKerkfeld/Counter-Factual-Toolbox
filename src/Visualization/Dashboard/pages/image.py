@@ -8,7 +8,7 @@ from PIL import Image
 from dash import html, Input, Output, callback, ALL, dcc, ctx, MATCH, State
 
 from src.Visualization.Dashboard.load import loader
-from src.Visualization.Dashboard.utils import blend_overlay, pad
+from src.Visualization.Dashboard.utils import blend_segmentation, pad, blend_change
 
 dash.register_page(__name__, path='/src/Visualization/Dashboard/pages/image')
 
@@ -178,24 +178,28 @@ def get_image(dataset: str,
     image /= (value_range[1] + 1e-9)
 
     if apply_change:
-        image += loader.get_change(dataset, step, sequence).take([slice], axis=dim).squeeze(
+        print("applying change")
+        image = loader.get_changed_image(dataset, step, sequence).take([slice], axis=dim).squeeze(
             axis=dim)
+        image -= value_range[0]
+        image /= (value_range[1] + 1e-9)
 
     image = (image * 255).astype(np.uint8)  # Normalize to 0-255
     img_pil = Image.fromarray(image)
 
     if show_change:
+        print("showing change")
         change = loader.get_change(dataset, step, sequence).take([slice], axis=dim).squeeze(
             axis=dim)
-        img_pil = blend_overlay(img_pil, change, cmap='RdBu')
+        img_pil = blend_change(img_pil, change, cmap='RdBu')
 
     if show_pred:
         pred = loader.get_pred(dataset, step).take([slice], axis=dim).squeeze(axis=dim)
-        img_pil = blend_overlay(img_pil, pred, cmap='Reds')
+        img_pil = blend_segmentation(img_pil, pred, cmap='Reds')
 
     if show_target:
         target = loader.get_image(dataset)['target'].take([slice], axis=dim).squeeze(axis=dim)
-        img_pil = blend_overlay(img_pil, target)
+        img_pil = blend_segmentation(img_pil, target)
 
 
     img_pil = pad(img_pil)

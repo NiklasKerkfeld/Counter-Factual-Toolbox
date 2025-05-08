@@ -68,8 +68,10 @@ class Framework:
 
         bar = trange(self.num_steps + 1)
         for self.step in bar:
+            # logging change before backprob
             if self.step == 1 or self.step % 10 == 0:
                 self.logger.log_change(self.step, self.model.change.detach())
+
             # process
             self.optimizer.zero_grad()
             pred, model_input = self.model(image_gpu)
