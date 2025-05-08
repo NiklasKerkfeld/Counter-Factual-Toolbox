@@ -26,7 +26,7 @@ class ModelWrapper(nn.Module):
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         model_input = self.input_image(x)
         x = self.model(model_input)
-        return x, model_input
+        return x
 
     def predict(self, image):
         with torch.no_grad():

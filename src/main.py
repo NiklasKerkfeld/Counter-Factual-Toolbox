@@ -1,7 +1,5 @@
 import argparse
 
-import torch
-
 from src.Framework.Framework import Framework
 from src.Framework.utils import get_network, get_image_files, load_item
 from src.Visualization.Logger import Logger
