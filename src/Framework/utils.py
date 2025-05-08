@@ -1,13 +1,15 @@
 import glob
 import os
+from copy import deepcopy
 from typing import Mapping, Hashable, Optional, Dict
 
+import monai
 import numpy as np
 import torch
 from monai.config import KeysCollection
 from monai.data import MetaTensor
 from monai.transforms import LoadImaged, Compose, ResampleToMatchd, ToTensord, ConcatItemsd, \
-    MapTransform, ToDeviced, DivisiblePadd, NormalizeIntensityd
+    MapTransform, ToDeviced, DivisiblePadd, NormalizeIntensityd, SaveImage
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
@@ -100,7 +102,6 @@ def get_image_files(path: str):
 def load_item(item: Dict[str, str],
               device: Optional[torch.device] = None,
               slice: Optional[int] = None):
-
     device = device if device is not None else 'cpu'
 
     loader = Compose([
@@ -128,6 +129,18 @@ def load_data(path: str,
     item = load_item(item, device, slice)
 
     return item
+
+
+def save(image: torch.Tensor, path: str, example: monai.data.MetaTensor, dtype = np.int8):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    save_image = SaveImage(output_dir=path,
+                           output_postfix='pred',
+                           output_dtype=dtype,
+                           separate_folder=False)
+    output_image = deepcopy(example)
+    output_image.set_array(image)
+
+    save_image(output_image)
 
 
 def plot_results(t1w_image: torch.Tensor, roi: torch.Tensor, pred: torch.Tensor,

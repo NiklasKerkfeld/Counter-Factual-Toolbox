@@ -20,8 +20,11 @@ class ModelWrapper(nn.Module):
         self.model.eval()
         self.change = nn.Parameter(torch.zeros(input_shape))
 
-    def forward(self, x):
-        model_input = x + self.change
+    def input_image(self, x: torch.Tensor) -> torch.Tensor:
+        return x + self.change
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        model_input = self.input_image(x)
         x = self.model(model_input)
         return x, model_input
 
@@ -36,7 +39,6 @@ class ModelWrapper(nn.Module):
 class Framework:
     def __init__(self, model: nn.Module,
                  input_shape: Tuple[int, int, int],
-                 logger: Logger,
                  device: Optional[torch.device] = None,
                  lr: float = LR,
                  steps: int = STEPS
@@ -53,11 +55,13 @@ class Framework:
 
         print(f"device: {self.device}\n")
 
-        self.logger = logger
+        self.logger = None
         self.step = 0
         self.num_steps = steps
 
-    def process(self, image: torch.Tensor, target: torch.Tensor) -> None:
+    def process(self, image: torch.Tensor, target: torch.Tensor, logger: Logger) -> None:
+        self.logger = logger
+
         self.model.model.eval()
 
         self.model.to(self.device)
@@ -74,8 +78,8 @@ class Framework:
 
             # process
             self.optimizer.zero_grad()
-            pred, model_input = self.model(image_gpu)
-            loss, loss_dict = self.loss_fn(pred, target, self.model.change, model_input)
+            pred = self.model(image_gpu)
+            loss, loss_dict = self.loss_fn(pred, target, self.model.change)
             loss.backward()
             self.optimizer.step()
 
@@ -92,3 +96,24 @@ class Framework:
 
             bar.set_description(
                 f"loss: {round(loss.detach().cpu().item(), 6)}, lr: {round(self.optimizer.param_groups[0]['lr'], 10)}")
+
+
+    def generate(self, image: torch.Tensor, target: torch.Tensor):
+        self.model.model.eval()
+
+        self.model.to(self.device)
+        self.loss_fn.to(self.device)
+
+        image_gpu = image.to(self.device)
+        target = target.to(self.device)
+
+        for self.step in range(self.num_steps + 1):
+            # process
+            self.optimizer.zero_grad()
+            pred = self.model(image_gpu)
+            loss, loss_dict = self.loss_fn(pred, target, self.model.change)
+            loss.backward()
+            self.optimizer.step()
+
+        return self.model.change.detach().cpu()
+

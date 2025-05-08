@@ -86,8 +86,7 @@ class Loss(nn.Module):
     def forward(self,
                 pred: torch.Tensor,
                 target: torch.Tensor,
-                change: torch.Tensor,
-                new_image: torch.Tensor):
+                change: torch.Tensor):
         # normal loss
         prediction_loss = self.loss_fn(pred, target)
 
@@ -104,7 +103,6 @@ class Loss(nn.Module):
         loss_dict = {
             "loss": loss.detach().item(),
             "prediction_loss": prediction_loss.detach().item(),
-            # "image_reg": image_reg.detach().item(),
             "value_reg": value_reg.detach().item(),
             "smooth_reg": 0.0 # smooth_reg.detach().item(),
         }
