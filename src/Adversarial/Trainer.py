@@ -59,16 +59,23 @@ class Trainer:
                 self.generate_dataset()
 
     def train_epoch(self):
+        # set dataset to training mode (returns change as target)
+        self.dataset.train()
         dataloader = DataLoader(self.dataset, batch_size=16, shuffle=True)
 
         for batch in dataloader:
-            pprint(batch)
-            exit(0)
-            # TODO: training stuff
+            image = batch['tensor'].to(self.device)
+            target = batch['change'].to(self.device)
+
+            print(image.shape)
+            print(target.shape)
 
     def generate_dataset(self):
+        # set dataset to generate mode (returns segmentation as target)
+        self.dataset.generate()
+        dataloader = DataLoader(self.dataset, batch_size=1, shuffle=False)
+
         model = ModelWrapper(self.generator, self.adversarial, (160, 256, 256))
-        dataloader = DataLoader(self.dataset, batch_size=16, shuffle=False)
 
         for item in dataloader:
             image = item['tensor'].to(self.device)
