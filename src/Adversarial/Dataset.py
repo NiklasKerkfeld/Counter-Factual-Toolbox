@@ -4,7 +4,7 @@ import os
 import numpy as np
 import torch
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd, NormalizeIntensityd, \
-    ConcatItemsd, ToTensord, DeleteItemsd, CenterSpatialCropd
+    ConcatItemsd, ToTensord, DeleteItemsd, CenterSpatialCropd, CastToTyped
 from torch.utils.data import Dataset
 
 from src.Framework.utils import get_image_files, save, AddMissingd
@@ -33,6 +33,7 @@ generate_transformations = Compose([
     NormalizeIntensityd(keys=['t1w', 'FLAIR']),
     ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
     ToTensord(keys=['tensor', 'target']),
+    CastToTyped(keys=['target'], dtype=torch.long),
     DeleteItemsd(keys=['t1w', 'FLAIR', 'change'])
 ])
 
