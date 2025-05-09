@@ -77,10 +77,10 @@ class CacheDataset(Dataset):
     def __len__(self):
         return len(self.dataset)
 
-    def generate(self):
+    def generate_mode(self):
         self.output_target = True
 
-    def train(self):
+    def train_mode(self):
         self.output_target = False
 
     def __getitem__(self, idx: int):

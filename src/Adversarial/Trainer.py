@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import torch
@@ -8,55 +8,73 @@ from torch import nn
 from tqdm import tqdm
 
 from src.Adversarial.Dataset import CacheDataset
-from src.Framework.utils import get_network, get_vram
+from src.Framework.utils import get_network
 
 
 class ModelWrapper(nn.Module):
-    def __init__(self, segmentation: nn.Module, adversarial: nn.Module, input_shape: Tuple[int, int, int, int]):
+    def __init__(self,
+                 segmentation: nn.Module,
+                 adversarial: nn.Module,
+                 input_shape: Tuple[int, int, int, int]):
         super(ModelWrapper, self).__init__()
         self.generator = segmentation
         self.adversarial = adversarial
+        self.input_shape = input_shape
+        self.mode = 'adversarial'
 
         self.generator.eval()
         for param in self.generator.parameters():
             param.requires_grad = False
 
-        self.adversarial.eval()
-        for param in self.adversarial.parameters():
-            param.requires_grad = False
-
-        self.change = nn.Parameter(torch.zeros(input_shape))
+        self.change = nn.Parameter(torch.zeros(self.input_shape))
 
     def get_input(self, x: torch.Tensor) -> torch.Tensor:
         return x + self.change
 
-    def forward(self, x):
-        new_image = self.get_input(x)
-        segmentation = self.generator(new_image)
-        adversarial = self.adversarial(new_image)
+    def generate_mode(self):
+        self.mode = 'generate'
+        self.adversarial.eval()
+        for param in self.adversarial.parameters():
+            param.requires_grad = False
 
-        return segmentation, adversarial
+    def train_mode(self):
+        self.mode = 'adversarial'
+        self.adversarial.eval()
+        for param in self.adversarial.parameters():
+            param.requires_grad = True
+
+    def reset(self):
+        self.change = nn.Parameter(torch.zeros(self.input_shape))
+
+    def forward(self, x) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
+        if self.mode == 'generate':
+            new_image = self.get_input(x)
+            segmentation = self.generator(new_image)
+            adversarial = self.adversarial(new_image)
+
+            return segmentation, adversarial
+
+        else:
+            new_image = self.get_input(x)
+            adversarial = self.adversarial(new_image)
+
+            return None, adversarial
 
 
 class Trainer:
     def __init__(self,
-                 adversarial: nn.Module,
-                 gernerator: ModelWrapper,
+                 model: ModelWrapper,
                  dataset: CacheDataset):
         self.dataset = dataset
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.adversarial = adversarial.to(self.device)
-        self.generator = gernerator.to(self.device)
+        self.model = model.to(self.device)
 
-        self.gen_optimizer = torch.optim.Adam(self.generator.parameters(), lr=1e-1)
-        self.adv_optimizer = torch.optim.Adam(self.adversarial.parameters(), lr=1e-3)
+        self.gen_optimizer = torch.optim.Adam(self.model.generator.parameters(), lr=1e-1)
+        self.adv_optimizer = torch.optim.Adam(self.model.adversarial.parameters(), lr=1e-3)
 
         self.gen_loss = nn.CrossEntropyLoss()
         self.adv_loss = nn.MSELoss()
-
-        used, total, free = get_vram(self.device)
-        print(f"loaded models currently {used} GB out of {total} GB of VRAM in use. {free} GB left!")
 
     def train(self, epochs: int):
         for epoch in range(epochs):
@@ -67,7 +85,8 @@ class Trainer:
 
     def train_epoch(self):
         # set dataset to training mode (returns change as target)
-        self.dataset.train()
+        self.dataset.train_mode()
+        self.model.train_mode()
         dataloader = DataLoader(self.dataset, batch_size=2, shuffle=True)
 
         losses = []
@@ -77,7 +96,7 @@ class Trainer:
             image += target
 
             self.adv_optimizer.zero_grad()
-            pred = self.adversarial(image)
+            pred = self.model(image)
             loss = self.adv_loss(pred, target)
             loss.backward()
             self.adv_optimizer.step()
@@ -88,11 +107,10 @@ class Trainer:
 
     def generate_dataset(self):
         # set dataset to generate mode (returns segmentation as target)
-        self.dataset.generate()
+        self.dataset.generate_mode()
+        self.model.generate_mode()
+        self.model.reset()
         dataloader = DataLoader(self.dataset, batch_size=1, shuffle=False)
-
-        model = ModelWrapper(self.generator, self.adversarial, (2, 160, 256, 256))
-        model.to(self.device)
 
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
             image = item['tensor'].to(self.device)
@@ -101,14 +119,14 @@ class Trainer:
             for _ in range(100):
                 # process
                 self.gen_optimizer.zero_grad()
-                segmentation, adversarial = model(image)
+                segmentation, adversarial = self.model(image)
                 gen_loss = self.gen_loss(segmentation, target)
                 adv_loss = torch.sum(adversarial)
                 loss = gen_loss + adv_loss
                 loss.backward()
                 self.gen_optimizer.step()
 
-            self.dataset.change_change(item['idx'], model.change.data)
+            self.dataset.change_change(item['idx'], self.model.change.data)
 
 
 if __name__ == '__main__':
