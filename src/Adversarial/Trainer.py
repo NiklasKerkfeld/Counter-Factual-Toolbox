@@ -102,6 +102,9 @@ class Trainer:
                 # process
                 self.gen_optimizer.zero_grad()
                 segmentation, adversarial = model(image)
+                print(f"{segmentation.shape=}")
+                print(f"{target.shape=}")
+                print(f"{adversarial.shape=}")
                 gen_loss = self.gen_loss(segmentation, target)
                 adv_loss = torch.sum(adversarial)
                 loss = gen_loss + adv_loss
