@@ -22,6 +22,8 @@ class ModelWrapper(nn.Module):
         self.input_shape = input_shape
         self.mode = 'adversarial'
 
+        print(f"{self.input_shape=}")
+
         self.generator.eval()
         for param in self.generator.parameters():
             param.requires_grad = False
@@ -39,7 +41,7 @@ class ModelWrapper(nn.Module):
 
     def train_mode(self):
         self.mode = 'adversarial'
-        self.adversarial.eval()
+        self.adversarial.train()
         for param in self.adversarial.parameters():
             param.requires_grad = True
 
@@ -50,6 +52,7 @@ class ModelWrapper(nn.Module):
     def forward(self, x) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
         if self.mode == 'generate':
             new_image = self.get_input(x)
+            print(f"{new_image.shape=}")
             segmentation = self.generator(new_image)
             adversarial = self.adversarial(new_image)
 
@@ -93,9 +96,6 @@ class Trainer:
             target = batch['change'].to(self.device)
             image += target
 
-            print(f"{image.shape=}")
-            print(f"{target.shape=}")
-
             self.adv_optimizer.zero_grad()
             _, pred = self.model(image)
             loss = self.adv_loss(pred, target)
@@ -116,6 +116,9 @@ class Trainer:
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
             image = item['tensor'].to(self.device)
             target = item['target'][:, 0].to(self.device)
+
+            print(f"{image.shape=}")
+            print(f"{target.shape=}")
 
             for _ in range(50):
                 # process
