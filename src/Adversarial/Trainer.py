@@ -65,6 +65,9 @@ class Trainer:
         # set dataset to training mode (returns change as target)
         self.dataset.train()
         dataloader = DataLoader(self.dataset, batch_size=16, shuffle=True)
+
+        self.adversarial.to(self.device)
+
         losses = []
         for batch in tqdm(dataloader, desc='train adversarial', total=len(dataloader)):
             image = batch['tensor'].to(self.device)
