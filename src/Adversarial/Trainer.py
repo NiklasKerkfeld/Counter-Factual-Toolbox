@@ -8,7 +8,7 @@ from torch import nn
 from tqdm import tqdm
 
 from src.Adversarial.Dataset import CacheDataset
-from src.Framework.utils import get_network
+from src.Framework.utils import get_network, get_vram
 
 
 class ModelWrapper(nn.Module):
@@ -42,17 +42,20 @@ class Trainer:
     def __init__(self, adversarial: nn.Module,
                  gernerator: ModelWrapper,
                  dataset: CacheDataset):
-        self.adversarial = adversarial
-        self.generator = gernerator
         self.dataset = dataset
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.adversarial = adversarial.to(self.device)
+        self.generator = gernerator.to(self.device)
 
         self.gen_optimizer = torch.optim.Adam(self.generator.parameters(), lr=1e-1)
         self.adv_optimizer = torch.optim.Adam(self.adversarial.parameters(), lr=1e-3)
 
         self.gen_loss = nn.CrossEntropyLoss()
         self.adv_loss = nn.MSELoss()
+
+        used, total, free = get_vram(self.device)
+        print(f"loaded models currently {used} GB out of {total} GB of VRAM in use. {free} GB left!")
 
     def train(self, epochs: int):
         for epoch in range(epochs):
@@ -66,12 +69,11 @@ class Trainer:
         self.dataset.train()
         dataloader = DataLoader(self.dataset, batch_size=8, shuffle=True)
 
-        self.adversarial.to(self.device)
-
         losses = []
         for batch in tqdm(dataloader, desc='train adversarial', total=len(dataloader)):
             image = batch['tensor'].to(self.device)
             target = batch['change'].to(self.device)
+            image += target
 
             self.adv_optimizer.zero_grad()
             pred = self.adversarial(image)

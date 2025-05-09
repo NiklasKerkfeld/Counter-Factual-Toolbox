@@ -198,6 +198,12 @@ def dice(pred, target):
     return (2 * intersection) / (torch.sum(pred) + torch.sum(target))
 
 
+def get_vram(device: torch.device):
+    free, total = torch.cuda.mem_get_info(device)
+    used = (total - free) / 1024 ** 3
+    return used, total, free
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
