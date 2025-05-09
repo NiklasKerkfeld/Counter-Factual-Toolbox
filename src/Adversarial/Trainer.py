@@ -116,7 +116,7 @@ if __name__ == '__main__':
     adversarial = BasicUnet(spatial_dims=3,
                             features=(32, 32, 64, 128, 256, 32),
                             in_channels=2,
-                            out_channels=1)
+                            out_channels=2)
 
     dataset = CacheDataset("data/Dataset101_fcd",
                            "data/change",
