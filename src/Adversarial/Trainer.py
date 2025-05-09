@@ -126,7 +126,7 @@ class Trainer:
                 loss.backward()
                 self.gen_optimizer.step()
 
-            self.dataset.change_change(item['idx'], self.model.change.data)
+            self.dataset.change_change(item['idx'].item(), self.model.change.data)
 
 
 if __name__ == '__main__':
