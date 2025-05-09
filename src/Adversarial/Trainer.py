@@ -52,7 +52,6 @@ class ModelWrapper(nn.Module):
     def forward(self, x) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
         if self.mode == 'generate':
             new_image = self.get_input(x)
-            print(f"{new_image.shape=}")
             segmentation = self.generator(new_image)
             adversarial = self.adversarial(new_image)
 
@@ -116,9 +115,6 @@ class Trainer:
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
             image = item['tensor'].to(self.device)
             target = item['target'][:, 0].to(self.device)
-
-            print(f"{image.shape=}")
-            print(f"{target.shape=}")
 
             for _ in range(50):
                 # process
