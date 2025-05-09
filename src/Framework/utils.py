@@ -199,8 +199,10 @@ def dice(pred, target):
 
 
 def get_vram(device: torch.device):
-    free, total = torch.cuda.mem_get_info(device)
-    used = (total - free) / 1024 ** 3
+    free_bytes, total_bytes = torch.cuda.mem_get_info(device)
+    free = free_bytes / 1024 ** 3  # Convert to GB
+    total = total_bytes / 1024 ** 3  # Convert to GB
+    used = total - free
     return used, total, free
 
 
