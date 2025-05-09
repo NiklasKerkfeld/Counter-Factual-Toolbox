@@ -70,7 +70,8 @@ class CacheDataset(Dataset):
 
     def change_change(self, idx: int, change: torch.Tensor):
         item = self.dataset[idx]
-        save(change, f"{self.cache_folder}/change_{idx}", item['change'], dtype=np.float32)
+        print(f"{item=}")
+        save(change, f"{self.cache_folder}/change_{idx}", item['target'], dtype=np.float32)
         item['change'] = f"{self.cache_folder}/change_{idx}.nii.gz"
 
     def __len__(self):
