@@ -108,9 +108,6 @@ if __name__ == '__main__':
 
     item = dataset[0]
 
-    pprint(item)
-    print()
-
     trainer = Trainer(adversarial, generator, dataset)
     trainer.train(10)
 

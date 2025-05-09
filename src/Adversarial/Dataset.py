@@ -4,7 +4,7 @@ import os
 import numpy as np
 import torch
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd, NormalizeIntensityd, \
-    DivisiblePadd, ConcatItemsd, ToTensord, DeleteItemsd
+    ConcatItemsd, ToTensord, DeleteItemsd, CenterSpatialCropd
 from torch.utils.data import Dataset
 
 from src.Framework.utils import get_image_files, save, AddMissingd
@@ -15,8 +15,8 @@ train_transformations = Compose([
                ensure_channel_first=True,
                allow_missing_keys=True),
     ResampleToMatchd(keys=['t1w', 'FLAIR', 'change'], key_dst='change'),
+    CenterSpatialCropd(keys=['t1w', 'FLAIR', 'change'], roi_size=(160, 256, 256)),
     NormalizeIntensityd(keys=['t1w', 'FLAIR']),
-    DivisiblePadd(keys=['t1w', 'FLAIR', 'change'], k=32),
     ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
     ToTensord(keys=['tensor', 'change']),
     DeleteItemsd(keys=['t1w', 'FLAIR', 'target'])
@@ -29,8 +29,8 @@ generate_transformations = Compose([
                allow_missing_keys=True),
     AddMissingd(keys=['t1w', 'FLAIR', 'target'], key_add='target', ref='FLAIR'),
     ResampleToMatchd(keys=['target', 't1w', 'FLAIR'], key_dst='target'),
+    CenterSpatialCropd(keys=['t1w', 'FLAIR', 'change'], roi_size=(160, 256, 256)),
     NormalizeIntensityd(keys=['t1w', 'FLAIR']),
-    DivisiblePadd(keys=['t1w', 'FLAIR', 'target'], k=32),
     ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
     ToTensord(keys=['tensor', 'target']),
     DeleteItemsd(keys=['t1w', 'FLAIR', 'change'])
@@ -78,6 +78,7 @@ class CacheDataset(Dataset):
 
 if __name__ == '__main__':
     from pprint import pprint
+
     dataset = CacheDataset("data/Dataset101_fcd",
                            "data/change",
                            "data/cache")
