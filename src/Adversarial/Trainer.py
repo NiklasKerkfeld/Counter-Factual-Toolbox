@@ -55,10 +55,7 @@ class ModelWrapper(nn.Module):
             return segmentation, adversarial
 
         else:
-            new_image = self.get_input(x)
-            adversarial = self.adversarial(new_image)
-
-            return None, adversarial
+            return None, self.adversarial(x)
 
 
 class Trainer:
@@ -95,6 +92,9 @@ class Trainer:
             target = batch['change'].to(self.device)
             image += target
 
+            print(f"{image.shape=}")
+            print(f"{target.shape=}")
+
             self.adv_optimizer.zero_grad()
             pred = self.model(image)
             loss = self.adv_loss(pred, target)
@@ -116,7 +116,7 @@ class Trainer:
             image = item['tensor'].to(self.device)
             target = item['target'][:, 0].to(self.device)
 
-            for _ in range(100):
+            for _ in range(50):
                 # process
                 self.gen_optimizer.zero_grad()
                 segmentation, adversarial = self.model(image)
