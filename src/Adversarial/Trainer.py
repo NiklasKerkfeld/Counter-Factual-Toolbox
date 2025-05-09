@@ -67,7 +67,7 @@ class Trainer:
     def train_epoch(self):
         # set dataset to training mode (returns change as target)
         self.dataset.train()
-        dataloader = DataLoader(self.dataset, batch_size=4, shuffle=True)
+        dataloader = DataLoader(self.dataset, batch_size=2, shuffle=True)
 
         losses = []
         for batch in tqdm(dataloader, desc='train adversarial', total=len(dataloader)):
