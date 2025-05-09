@@ -56,7 +56,7 @@ class Trainer:
 
     def train(self, epochs: int):
         for epoch in range(epochs):
-            print(f"start epoch {epoch}")
+            print(f"start epoch {epoch + 1}")
             self.train_epoch()
             if epoch != epochs - 1:
                 self.generate_dataset()
@@ -64,7 +64,7 @@ class Trainer:
     def train_epoch(self):
         # set dataset to training mode (returns change as target)
         self.dataset.train()
-        dataloader = DataLoader(self.dataset, batch_size=16, shuffle=True)
+        dataloader = DataLoader(self.dataset, batch_size=8, shuffle=True)
 
         self.adversarial.to(self.device)
 
