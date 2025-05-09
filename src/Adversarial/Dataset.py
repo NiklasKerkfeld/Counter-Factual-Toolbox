@@ -61,7 +61,7 @@ class CacheDataset(Dataset):
             basename = os.path.basename(path)
             if basename in exceptions:
                 continue
-                
+
             item = get_image_files(path)
             item['idx'] = idx
             item['change'] = glob.glob(f"{init_folder}/{basename}/*change.nii.gz")[0]

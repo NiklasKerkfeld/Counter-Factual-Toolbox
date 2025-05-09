@@ -1,9 +1,11 @@
 from typing import Tuple
 
+import numpy as np
 import torch
 from monai.data import DataLoader
 from monai.networks.nets import BasicUnet
 from torch import nn
+from tqdm import tqdm
 
 from src.Adversarial.Dataset import CacheDataset
 from src.Framework.utils import get_network
@@ -54,6 +56,7 @@ class Trainer:
 
     def train(self, epochs: int):
         for epoch in range(epochs):
+            print(f"start epoch {epoch}")
             self.train_epoch()
             if epoch != epochs - 1:
                 self.generate_dataset()
@@ -62,13 +65,20 @@ class Trainer:
         # set dataset to training mode (returns change as target)
         self.dataset.train()
         dataloader = DataLoader(self.dataset, batch_size=16, shuffle=True)
-
-        for batch in dataloader:
+        losses = []
+        for batch in tqdm(dataloader, desc='train adversarial', total=len(dataloader)):
             image = batch['tensor'].to(self.device)
             target = batch['change'].to(self.device)
 
-            print(image.shape)
-            print(target.shape)
+            self.adv_optimizer.zero_grad()
+            pred = self.adversarial(image)
+            loss = self.adv_loss(pred, target)
+            loss.backward()
+            self.adv_optimizer.step()
+
+            losses.append(loss.cpu().detach().item())
+
+        print(f"finish training with average loss: {np.mean(losses)}")
 
     def generate_dataset(self):
         # set dataset to generate mode (returns segmentation as target)
@@ -76,8 +86,9 @@ class Trainer:
         dataloader = DataLoader(self.dataset, batch_size=1, shuffle=False)
 
         model = ModelWrapper(self.generator, self.adversarial, (160, 256, 256))
+        model.to(self.device)
 
-        for item in dataloader:
+        for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
             image = item['tensor'].to(self.device)
             target = item['target'].to(self.device)
 
@@ -86,7 +97,7 @@ class Trainer:
                 self.gen_optimizer.zero_grad()
                 segmentation, adversarial = model(image)
                 gen_loss = self.gen_loss(segmentation, target)
-                adv_loss = self.adv_loss(segmentation, adversarial)
+                adv_loss = torch.sum(adversarial)
                 loss = gen_loss + adv_loss
                 loss.backward()
                 self.gen_optimizer.step()
