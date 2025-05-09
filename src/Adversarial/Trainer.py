@@ -44,7 +44,8 @@ class ModelWrapper(nn.Module):
             param.requires_grad = True
 
     def reset(self):
-        self.change = nn.Parameter(torch.zeros(self.input_shape))
+        with torch.no_grad():
+            self.change.data.zero_()
 
     def forward(self, x) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
         if self.mode == 'generate':
