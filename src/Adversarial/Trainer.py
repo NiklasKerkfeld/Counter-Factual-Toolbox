@@ -136,12 +136,12 @@ if __name__ == '__main__':
                             in_channels=2,
                             out_channels=2)
 
+    model = ModelWrapper(generator, adversarial, (2, 160, 256, 256))
+
     dataset = CacheDataset("data/Dataset101_fcd",
                            "data/change",
                            "data/cache")
 
-    item = dataset[0]
-
-    trainer = Trainer(adversarial, generator, dataset)
+    trainer = Trainer(model, dataset)
     trainer.train(10)
 
