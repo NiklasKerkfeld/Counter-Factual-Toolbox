@@ -11,7 +11,7 @@ from src.Visualization.Logger import Logger
 
 
 class ModelWrapper(nn.Module):
-    def __init__(self, model: nn.Module, input_shape: Tuple[int, int, int]):
+    def __init__(self, model: nn.Module, input_shape: Tuple[int, int, int, int]):
         super().__init__()
         self.model = model
         for param in self.model.parameters():
@@ -38,7 +38,7 @@ class ModelWrapper(nn.Module):
 
 class Framework:
     def __init__(self, model: nn.Module,
-                 input_shape: Tuple[int, int, int],
+                 input_shape: Tuple[int, int, int, int],
                  device: Optional[torch.device] = None,
                  lr: float = LR,
                  steps: int = STEPS

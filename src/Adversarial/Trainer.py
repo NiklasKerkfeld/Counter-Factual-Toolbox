@@ -12,7 +12,7 @@ from src.Framework.utils import get_network, get_vram
 
 
 class ModelWrapper(nn.Module):
-    def __init__(self, segmentation: nn.Module, adversarial: nn.Module, input_shape: Tuple[int, int, int]):
+    def __init__(self, segmentation: nn.Module, adversarial: nn.Module, input_shape: Tuple[int, int, int, int]):
         super(ModelWrapper, self).__init__()
         self.generator = segmentation
         self.adversarial = adversarial
@@ -39,7 +39,8 @@ class ModelWrapper(nn.Module):
 
 
 class Trainer:
-    def __init__(self, adversarial: nn.Module,
+    def __init__(self,
+                 adversarial: nn.Module,
                  gernerator: ModelWrapper,
                  dataset: CacheDataset):
         self.dataset = dataset
@@ -90,7 +91,7 @@ class Trainer:
         self.dataset.generate()
         dataloader = DataLoader(self.dataset, batch_size=1, shuffle=False)
 
-        model = ModelWrapper(self.generator, self.adversarial, (160, 256, 256))
+        model = ModelWrapper(self.generator, self.adversarial, (2, 160, 256, 256))
         model.to(self.device)
 
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
@@ -111,7 +112,6 @@ class Trainer:
 
 
 if __name__ == '__main__':
-    from pprint import pprint
     generator = get_network(configuration='3d_fullres', fold=0)
     adversarial = BasicUnet(spatial_dims=3,
                             features=(32, 32, 64, 128, 256, 32),
