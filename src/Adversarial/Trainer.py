@@ -96,7 +96,7 @@ class Trainer:
 
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
             image = item['tensor'].to(self.device)
-            target = item['target'].to(self.device)
+            target = item['target'][:, 0].to(self.device)
 
             for _ in range(100):
                 # process
