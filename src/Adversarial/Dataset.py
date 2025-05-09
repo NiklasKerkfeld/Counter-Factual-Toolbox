@@ -36,6 +36,14 @@ generate_transformations = Compose([
     DeleteItemsd(keys=['t1w', 'FLAIR', 'change'])
 ])
 
+exceptions = ['sub-00074',
+              'sub-00130',
+              'sub-00120',
+              'sub-00027',
+              'sub-00018',
+              'sub-00053',
+              'sub-00112']
+
 
 class CacheDataset(Dataset):
     def __init__(self, source_folder: str,
@@ -50,9 +58,13 @@ class CacheDataset(Dataset):
         folders = glob.glob(f"{source_folder}/sub-*")
         self.dataset = []
         for idx, path in enumerate(folders):
+            basename = os.path.basename(path)
+            if basename in exceptions:
+                continue
+                
             item = get_image_files(path)
             item['idx'] = idx
-            item['change'] = glob.glob(f"{init_folder}/{os.path.basename(path)}/*change.nii.gz")[0]
+            item['change'] = glob.glob(f"{init_folder}/{basename}/*change.nii.gz")[0]
             self.dataset.append(item)
 
     def change_change(self, idx: int, change: torch.Tensor):
