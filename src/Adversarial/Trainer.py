@@ -96,7 +96,7 @@ class Trainer:
             print(f"{target.shape=}")
 
             self.adv_optimizer.zero_grad()
-            pred = self.model(image)
+            _, pred = self.model(image)
             loss = self.adv_loss(pred, target)
             loss.backward()
             self.adv_optimizer.step()
