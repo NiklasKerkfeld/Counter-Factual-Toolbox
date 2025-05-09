@@ -37,7 +37,8 @@ generate_transformations = Compose([
     DeleteItemsd(keys=['t1w', 'FLAIR', 'change'])
 ])
 
-exceptions = ['sub-00074',
+exceptions = ['sub-00002',
+              'sub-00074',
               'sub-00130',
               'sub-00120',
               'sub-00027',
