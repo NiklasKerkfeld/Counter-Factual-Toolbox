@@ -6,65 +6,18 @@ from monai.data import DataLoader
 from monai.networks.nets import BasicUnet
 from torch import nn
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
+from src.Adversarial.AdversarialWrapper import AdversarialWrapper
 from src.Adversarial.Dataset import CacheDataset
 from src.Framework.utils import get_network
 
 
-class ModelWrapper(nn.Module):
-    def __init__(self,
-                 segmentation: nn.Module,
-                 adversarial: nn.Module,
-                 input_shape: Tuple[int, int, int, int]):
-        super(ModelWrapper, self).__init__()
-        self.generator = segmentation
-        self.adversarial = adversarial
-        self.input_shape = input_shape
-        self.mode = 'adversarial'
-
-        print(f"{self.input_shape=}")
-
-        self.generator.eval()
-        for param in self.generator.parameters():
-            param.requires_grad = False
-
-        self.change = nn.Parameter(torch.zeros(self.input_shape))
-
-    def get_input(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.change
-
-    def generate_mode(self):
-        self.mode = 'generate'
-        self.adversarial.eval()
-        for param in self.adversarial.parameters():
-            param.requires_grad = False
-
-    def train_mode(self):
-        self.mode = 'adversarial'
-        self.adversarial.train()
-        for param in self.adversarial.parameters():
-            param.requires_grad = True
-
-    def reset(self):
-        with torch.no_grad():
-            self.change.data.zero_()
-
-    def forward(self, x) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
-        if self.mode == 'generate':
-            new_image = self.get_input(x)
-            segmentation = self.generator(new_image)
-            adversarial = self.adversarial(new_image)
-
-            return segmentation, adversarial
-
-        else:
-            return None, self.adversarial(x)
-
-
 class Trainer:
     def __init__(self,
-                 model: ModelWrapper,
-                 dataset: CacheDataset):
+                 model: AdversarialWrapper,
+                 dataset: CacheDataset,
+                 logging_path: str = "logs"):
         self.dataset = dataset
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -75,6 +28,9 @@ class Trainer:
 
         self.gen_loss = nn.CrossEntropyLoss()
         self.adv_loss = nn.MSELoss()
+
+        self.writer = SummaryWriter(log_dir=logging_path)
+        self.step = 0
 
     def train(self, epochs: int):
         for epoch in range(epochs):
@@ -95,13 +51,17 @@ class Trainer:
             target = batch['change'].to(self.device)
             image += target
 
+            # update step
             self.adv_optimizer.zero_grad()
             _, pred = self.model(image)
             loss = self.adv_loss(pred, target)
             loss.backward()
             self.adv_optimizer.step()
 
+            # logging
+            self.log_value("Adversarial", loss=loss.item())
             losses.append(loss.cpu().detach().item())
+            self.step += 1
 
         print(f"finish training with average loss: {np.mean(losses)}")
 
@@ -112,6 +72,7 @@ class Trainer:
         self.model.reset()
         dataloader = DataLoader(self.dataset, batch_size=1, shuffle=False)
 
+        gen_losses, adv_losses, losses = [], [], []
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
             image = item['tensor'].to(self.device)
             target = item['target'][:, 0].to(self.device)
@@ -126,7 +87,35 @@ class Trainer:
                 loss.backward()
                 self.gen_optimizer.step()
 
+            gen_losses.append(gen_loss.detach().cpu().item())
+            adv_losses.append(adv_loss.detach().cpu().item())
+            losses.append(loss.detach().cpu().item())
+
             self.dataset.change_change(item['idx'].item(), self.model.change.data)
+
+        self.log_value("Generator", gen_loss=np.array(gen_losses).mean())
+        self.log_value("Generator", adv_loss=np.array(adv_losses).mean())
+        self.log_value("Generator", loss=np.array(losses).mean())
+
+    def log_value(self, category: str, **kwargs: float) -> None:
+        """
+        Logs the loss values to tensorboard.
+
+        Args:
+            dataset: Name of the dataset the loss comes from ('Training' or 'Valid')
+            step: Optional value for step (default is current epoch)
+            kwargs: dict with loss names (keys) and loss values (values)
+
+        """
+        # logging
+        for key, value in kwargs.items():
+            self.writer.add_scalar(
+                f"{category}/{key}",
+                value,
+                global_step=self.step
+            )  # type: ignore
+
+        self.writer.flush()  # type: ignore
 
 
 if __name__ == '__main__':
@@ -136,7 +125,7 @@ if __name__ == '__main__':
                             in_channels=2,
                             out_channels=2)
 
-    model = ModelWrapper(generator, adversarial, (2, 160, 256, 256))
+    model = AdversarialWrapper(generator, adversarial, (2, 160, 256, 256))
 
     dataset = CacheDataset("data/Dataset101_fcd",
                            "data/change",
@@ -144,4 +133,3 @@ if __name__ == '__main__':
 
     trainer = Trainer(model, dataset)
     trainer.train(10)
-
