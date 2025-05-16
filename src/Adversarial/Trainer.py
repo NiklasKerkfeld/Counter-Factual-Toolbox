@@ -17,7 +17,7 @@ class Trainer:
     def __init__(self,
                  model: AdversarialWrapper,
                  dataset: CacheDataset,
-                 logging_path: str = "logs"):
+                 logging_path: str = "logs/Adversarial",):
         self.dataset = dataset
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
