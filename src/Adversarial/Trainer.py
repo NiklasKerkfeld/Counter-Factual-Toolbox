@@ -73,7 +73,7 @@ class Trainer:
         self.model.reset()
         dataloader = DataLoader(self.dataset, batch_size=1, shuffle=False)
 
-        gen_losses, adv_losses, losses = [], [], []
+        gen_losses, adv_losses, losses, avg_change = [], [], [], []
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
             image = item['tensor'].to(self.device)
             target = item['target'][:, 0].to(self.device)
@@ -91,12 +91,17 @@ class Trainer:
             gen_losses.append(gen_loss.detach().cpu().item())
             adv_losses.append(adv_loss.detach().cpu().item())
             losses.append(loss.detach().cpu().item())
+            avg_change.append(self.model.change.data.mean().item())
 
             self.dataset.change_change(item['idx'].item(), self.model.change.data)
 
         self.log_value("Generator", gen_loss=np.array(gen_losses).mean())
         self.log_value("Generator", adv_loss=np.array(adv_losses).mean())
         self.log_value("Generator", loss=np.array(losses).mean())
+
+        self.log_value("Generator", mean_change=np.array(avg_change).mean())
+        self.log_value("Generator", std_change=np.array(avg_change).std())
+
 
     def log_value(self, category: str, **kwargs: float) -> None:
         """
