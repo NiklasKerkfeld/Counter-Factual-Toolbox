@@ -1,5 +1,6 @@
 from typing import Tuple, Optional
 
+import argparse
 import numpy as np
 import torch
 from monai.data import DataLoader
@@ -17,7 +18,7 @@ class Trainer:
     def __init__(self,
                  model: AdversarialWrapper,
                  dataset: CacheDataset,
-                 logging_path: str = "logs/Adversarial",):
+                 name: str):
         self.dataset = dataset
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -29,7 +30,7 @@ class Trainer:
         self.gen_loss = nn.CrossEntropyLoss()
         self.adv_loss = nn.MSELoss()
 
-        self.writer = SummaryWriter(log_dir=logging_path)
+        self.writer = SummaryWriter(log_dir=f"logs/Adversarial/{name}")
         self.step = 0
 
     def train(self, epochs: int):
@@ -77,7 +78,7 @@ class Trainer:
             image = item['tensor'].to(self.device)
             target = item['target'][:, 0].to(self.device)
 
-            for _ in range(50):
+            for _ in range(25):
                 # process
                 self.gen_optimizer.zero_grad()
                 segmentation, adversarial = self.model(image)
@@ -118,7 +119,37 @@ class Trainer:
         self.writer.flush()  # type: ignore
 
 
+def get_args() -> argparse.Namespace:
+    """
+    Defines arguments.
+
+    Returns:
+        Namespace with parsed arguments.
+    """
+    parser = argparse.ArgumentParser(description="train Pero OCR")
+
+    parser.add_argument(
+        "--name",
+        "-n",
+        type=str,
+        default="model",
+        help="Name of the model and the log files."
+    )
+
+    parser.add_argument(
+        "--epochs",
+        "-e",
+        type=int,
+        default=1,
+        help="Number of epochs to train."
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
+    args = get_args()
+
     generator = get_network(configuration='3d_fullres', fold=0)
     adversarial = BasicUnet(spatial_dims=3,
                             features=(32, 32, 64, 128, 256, 32),
@@ -131,5 +162,5 @@ if __name__ == '__main__':
                            "data/change",
                            "data/cache")
 
-    trainer = Trainer(model, dataset)
-    trainer.train(10)
+    trainer = Trainer(model, dataset, args.name)
+    trainer.train(args.epochs)
