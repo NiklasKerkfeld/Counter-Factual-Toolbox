@@ -57,16 +57,12 @@ class CacheDataset(Dataset):
         self.cache_folder = cache_folder
         os.makedirs(self.cache_folder, exist_ok=True)
 
-        folders = glob.glob(f"{source_folder}/sub-*")
+        folders = [path for path in glob.glob(f"{source_folder}/sub-*") if os.path.basename(path) not in exceptions]
         self.dataset = []
         for idx, path in enumerate(folders):
-            basename = os.path.basename(path)
-            if basename in exceptions:
-                continue
-
             item = get_image_files(path)
             item['idx'] = idx
-            item['change'] = glob.glob(f"{init_folder}/{basename}/*change.nii.gz")[0]
+            item['change'] = glob.glob(f"{init_folder}/{os.path.basename(path)}/*change.nii.gz")[0]
             self.dataset.append(item)
 
     def change_change(self, idx: int, change: torch.Tensor):
