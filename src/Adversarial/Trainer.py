@@ -1,5 +1,3 @@
-from typing import Tuple, Optional
-
 import argparse
 import numpy as np
 import torch
@@ -70,20 +68,21 @@ class Trainer:
         # set dataset to generate mode (returns segmentation as target)
         self.dataset.generate_mode()
         self.model.generate_mode()
-        self.model.reset()
         dataloader = DataLoader(self.dataset, batch_size=1, shuffle=False)
 
         gen_losses, adv_losses, losses, avg_change = [], [], [], []
         for item in tqdm(dataloader, desc='generate dataset', total=len(dataloader)):
+            self.model.reset()
+
             image = item['tensor'].to(self.device)
             target = item['target'][:, 0].to(self.device)
 
-            for _ in range(25):
+            for _ in range(10):
                 # process
                 self.gen_optimizer.zero_grad()
                 segmentation, adversarial = self.model(image)
                 gen_loss = self.gen_loss(segmentation, target)
-                adv_loss = torch.sum(adversarial)
+                adv_loss = torch.mean(adversarial)
                 loss = gen_loss + adv_loss
                 loss.backward()
                 self.gen_optimizer.step()
