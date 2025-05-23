@@ -33,7 +33,7 @@ def main(steps: int):
     plt.subplot(1, 2, 2)
     plt.title("Deformed")
     plt.imshow(new_image, cmap='gray')
-    plt.show()
+    plt.savefig("logs/result.png")
 
     
    
