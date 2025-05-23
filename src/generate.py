@@ -15,7 +15,7 @@ def main(steps: int):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    image = load_data('path/to/image', device=device, slice=32)
+    image = load_data('data/Dataset101_fcd/sub-00001', device=device, slice=32)
 
     for i in trange(steps):
         optimizer.zero_grad()
