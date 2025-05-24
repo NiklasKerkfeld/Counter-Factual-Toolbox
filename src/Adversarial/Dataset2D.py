@@ -20,6 +20,7 @@ exceptions = ['sub-00002',
               'sub-00053',
               'sub-00112']
 
+
 def load_image(path: str, slice_dim: int = 0) -> Tuple[Dict[str, torch.Tensor], int]:
     load = Compose([
         LoadImaged(keys=['t1w', 'FLAIR', 'target'],
@@ -37,7 +38,12 @@ def load_image(path: str, slice_dim: int = 0) -> Tuple[Dict[str, torch.Tensor], 
         DeleteItemsd(keys=['t1w', 'FLAIR'])
     ])
 
-    item = load(get_image_files(path))
+    try:
+        item = load(get_image_files(path))
+    except Exception as e:
+        print(f"While loading this file: {path} an Error occurred.")
+        raise e
+
     num_slices = item['tensor'].shape[slice_dim]
 
     return item, num_slices
