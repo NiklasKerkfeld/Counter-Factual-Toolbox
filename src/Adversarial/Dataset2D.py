@@ -57,7 +57,7 @@ class Dataset2D(Dataset):
 
         self.data = {}
         self.len = 0
-        for x in tqdm(list(glob.glob(f"{path}/*")), desc='loading data'):
+        for x in tqdm([x for x in glob.glob(f"{path}/sub-*") if os.path.isdir(x)], desc='loading data'):
             if os.path.basename(x) in exceptions:
                 continue
             item, num_slices = load_image(x, self.slice_dim)
