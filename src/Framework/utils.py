@@ -9,7 +9,7 @@ import torch
 from monai.config import KeysCollection
 from monai.data import MetaTensor
 from monai.transforms import LoadImaged, Compose, ResampleToMatchd, ToTensord, ConcatItemsd, \
-    MapTransform, ToDeviced, DivisiblePadd, NormalizeIntensityd, SaveImage
+    MapTransform, ToDeviced, DivisiblePadd, NormalizeIntensityd, SaveImage, CastToTypeD
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
@@ -116,6 +116,7 @@ def load_item(item: Dict[str, str],
         DivisiblePadd(keys=['t1w', 'FLAIR', 'target'], k=32),
         ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
         ToTensord(keys=['tensor', 'target']),
+        CastToTypeD(keys=['tensor', 'target'], dtype=[torch.float, torch.long]),
         ToDeviced(keys=['tensor', 'target'], device=device)
     ])
 
