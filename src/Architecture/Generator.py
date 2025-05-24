@@ -24,8 +24,6 @@ class Generator(nn.Module):
         self.loss = CrossEntropyLoss()
 
         self.model.eval()
-        for param in self.model.parameters():
-            param.requires_grad = False
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -57,3 +55,7 @@ class Generator(nn.Module):
             the adapted image and the cost of that adaption.
         """
         return input, torch.tensor(0.0).to(input.device)
+
+    def reset(self):
+        """Resets all parameters so a new image can be generated."""
+        pass

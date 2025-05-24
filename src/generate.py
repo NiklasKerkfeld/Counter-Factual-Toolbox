@@ -17,7 +17,7 @@ def main(steps: int):
     generator = ElasticDeformation2D(model, (160, 256), (20, 32), alpha=.001)
     generator.to(device)
 
-    optimizer = torch.optim.Adam(generator.parameters(), lr=1e-1)
+    optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
 
     item = load_data('data/Dataset101_fcd/sub-00001', device=device, slice=144)
     image = item['tensor'][None].to(device)

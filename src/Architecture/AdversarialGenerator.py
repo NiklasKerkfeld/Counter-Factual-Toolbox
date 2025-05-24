@@ -19,13 +19,29 @@ class AdversarialGenerator(Generator):
                                      spatial_dims=2,
                                      features=(64, 128, 256, 512, 1024, 128))
 
-        self.change = nn.Parameter(torch.zeros(*image_shape))
+        self.change = nn.Parameter(torch.zeros(*self.image_shape))
 
-    def image(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # calc updated image
-        new_input =  input + self.change
+        new_input = input + self.change
 
         # cost are the predicted change by the adversarial
-        cost = torch.mean(self.adversarial(new_input))
+        if self.alpha != 0.0:
+            cost = torch.mean(torch.abs(self.adversarial(new_input)))
+        else:
+            cost = torch.tensor(0.0, device=input.device)
 
         return new_input, cost
+
+    def reset(self):
+        device = self.change.device
+        self.change = nn.Parameter(torch.zeros(*self.image_shape, device=device))
+
+
+if __name__ == '__main__':
+    from src.Framework.utils import get_network
+
+    model = get_network(configuration='2d', fold=0)
+    generator = AdversarialGenerator(model, (256, 256))
+
+    print(generator)
