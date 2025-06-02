@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.Adversarial.AdversarialWrapper import AdversarialWrapper
 from src.Adversarial.Dataset import CacheDataset
-from src.Framework.utils import get_network
+from src.utils import get_network
 
 
 class Trainer:

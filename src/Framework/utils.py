@@ -10,7 +10,8 @@ from monai.config import KeysCollection
 from monai.data import MetaTensor
 from monai.transforms import LoadImaged, Compose, ResampleToMatchd, ToTensord, ConcatItemsd, \
     MapTransform, ToDeviced, DivisiblePadd, NormalizeIntensityd, SaveImage, CastToTypeD
-from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
+
+from src.utils import get_network
 
 
 class SelectSliced(MapTransform):
@@ -71,19 +72,6 @@ class AddMissingd(MapTransform):
 
         data[self.key_add] = new_tensor
         return data
-
-
-def get_network(configuration: str, fold: int = 0):
-    predictor = nnUNetPredictor()
-
-    predictor.initialize_from_trained_model_folder(
-        f"models/Dataset101_fcd/nnUNetTrainer__nnUNetPlans__{configuration}",
-        str(fold),
-        "checkpoint_best.pth")
-
-    net = predictor.network
-
-    return net
 
 
 def get_image_files(path: str):
@@ -188,15 +176,6 @@ def plot_results(t1w_image: torch.Tensor, roi: torch.Tensor, pred: torch.Tensor,
     plt.tight_layout()
     plt.savefig("results/pred.png")
     plt.close()
-
-
-def dice(pred, target):
-    pred = pred.flatten()
-    target = target.flatten()
-
-    intersection = torch.sum(torch.logical_and(pred, target))
-
-    return (2 * intersection) / (torch.sum(pred) + torch.sum(target))
 
 
 def get_vram(device: torch.device):

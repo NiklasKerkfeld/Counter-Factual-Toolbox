@@ -5,8 +5,8 @@ from torch.nn import CrossEntropyLoss
 from tqdm import trange
 
 from src.Architecture.DeformationGenerator import ElasticDeformation2D
-from src.Framework.utils import get_network, load_data
-from src.utils import visualize_deformation_field
+from src.Framework.utils import load_data
+from src.utils import visualize_deformation_field, get_network
 
 
 def main(steps: int):

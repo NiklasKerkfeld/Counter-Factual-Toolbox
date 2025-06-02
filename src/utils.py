@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
+from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
 def visualize_deformation_field(image, dx, dy, scale=1, color='red'):
@@ -31,3 +33,37 @@ def visualize_deformation_field(image, dx, dy, scale=1, color='red'):
     plt.axis('off')
     plt.savefig('logs/deformation.png', dpi=1000)
     plt.close()
+
+
+def inverse_z_transform(image: torch.Tensor, mean: float, std: float) -> torch.Tensor:
+    image *= std
+    image += mean
+    return image.clip(0.0, None)
+
+
+def normalize(image: torch.Tensor) -> torch.Tensor:
+    image -= image.min()
+    image /= image.max()
+    return image
+
+
+def get_network(configuration: str, fold: int = 0):
+    predictor = nnUNetPredictor()
+
+    predictor.initialize_from_trained_model_folder(
+        f"models/Dataset101_fcd/nnUNetTrainer__nnUNetPlans__{configuration}",
+        str(fold),
+        "checkpoint_best.pth")
+
+    net = predictor.network
+
+    return net
+
+
+def dice(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    pred = pred.flatten()
+    target = target.flatten()
+
+    intersection = torch.sum(torch.logical_and(pred, target))
+
+    return (2 * intersection) / (torch.sum(pred) + torch.sum(target))

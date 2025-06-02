@@ -1,7 +1,8 @@
 import argparse
 
 from src.Framework.Framework import Framework
-from src.Framework.utils import get_network, get_image_files, load_item
+from src.Framework.utils import get_image_files, load_item
+from src.utils import get_network
 from src.Visualization.Logger import Logger
 
 

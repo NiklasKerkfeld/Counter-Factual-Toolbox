@@ -1,6 +1,6 @@
 import glob
 import os.path
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 
 import torch
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd, NormalizeIntensityd, \
@@ -9,7 +9,6 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from src.Framework.utils import get_image_files, AddMissingd
-
 
 exceptions = ['sub-00002',
               'sub-00074',
@@ -28,9 +27,13 @@ def load_image(path: str, slice_dim: int = 0) -> Tuple[Dict[str, torch.Tensor], 
                    ensure_channel_first=True,
                    allow_missing_keys=True),
         AddMissingd(keys=['FLAIR'], key_add='target', ref='FLAIR'),
-        ResampleToMatchd(keys=['target', 't1w', 'FLAIR'], key_dst='target'),
+        ResampleToMatchd(keys=['target', 't1w', 'FLAIR'], key_dst='target')
+    ])
+
+    normalize = NormalizeIntensityd(keys=['t1w', 'FLAIR'])
+
+    preprocess = Compose([
         CenterSpatialCropd(keys=['t1w', 'FLAIR', 'target'], roi_size=(160, 256, 256)),
-        NormalizeIntensityd(keys=['t1w', 'FLAIR']),
         ConcatItemsd(keys=['t1w', 'FLAIR'], name='tensor', dim=0),
         AddMissingd(keys=['tensor'], key_add='change', ref='tensor'),
         ToTensord(keys=['tensor', 'target', 'change']),
@@ -40,11 +43,13 @@ def load_image(path: str, slice_dim: int = 0) -> Tuple[Dict[str, torch.Tensor], 
 
     try:
         item = load(get_image_files(path))
+        item = normalize(item)
+        item = preprocess(item)
     except Exception as e:
         print(f"While loading this file: {path} an Error occurred.")
         raise e
 
-    num_slices = item['tensor'].shape[slice_dim]
+    num_slices: int = item['tensor'].shape[slice_dim]
 
     return item, num_slices
 
@@ -57,7 +62,8 @@ class Dataset2D(Dataset):
 
         self.data = {}
         self.len = 0
-        for x in tqdm([x for x in glob.glob(f"{path}/sub-*") if os.path.isdir(x)], desc='loading data'):
+        for x in tqdm([x for x in glob.glob(f"{path}/sub-*")[:5] if os.path.isdir(x)],
+                      desc='loading data'):
             if os.path.basename(x) in exceptions:
                 continue
             item, num_slices = load_image(x, self.slice_dim)

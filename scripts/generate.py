@@ -6,7 +6,8 @@ import torch
 from tqdm import tqdm
 
 from src.Framework.Framework import ModelWrapper, Framework
-from src.Framework.utils import get_network, load_data, save, get_image_files, load_item
+from src.Framework.utils import load_data, save, get_image_files, load_item
+from src.utils import get_network
 
 
 def main(dataset_path: str, output_path: str):

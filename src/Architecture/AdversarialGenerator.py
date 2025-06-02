@@ -15,7 +15,7 @@ class AdversarialGenerator(Generator):
         self.image_shape = image_shape
 
         self.adversarial = BasicUNet(in_channels=2,
-                                     out_channels=1,
+                                     out_channels=2,
                                      spatial_dims=2,
                                      features=(64, 128, 256, 512, 1024, 128))
 
@@ -39,7 +39,7 @@ class AdversarialGenerator(Generator):
 
 
 if __name__ == '__main__':
-    from src.Framework.utils import get_network
+    from src.utils import get_network
 
     model = get_network(configuration='2d', fold=0)
     generator = AdversarialGenerator(model, (256, 256))

@@ -4,7 +4,8 @@ import os.path
 import torch
 from tqdm import tqdm
 
-from src.Framework.utils import get_network, load_data, save
+from src.Framework.utils import load_data, save
+from src.utils import get_network
 
 
 def main(dataset_path: str):

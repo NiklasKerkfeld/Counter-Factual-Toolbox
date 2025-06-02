@@ -6,7 +6,7 @@ from tqdm import trange
 
 from src.Framework.Loss import Loss
 from src.Framework.config import STEPS, LR
-from src.Framework.utils import dice
+from src.utils import dice
 from src.Visualization.Logger import Logger
 
 
