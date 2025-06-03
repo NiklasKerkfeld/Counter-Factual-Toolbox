@@ -3,6 +3,7 @@ from typing import Sequence, Tuple
 import torch
 from monai.networks.nets import BasicUNet
 from torch import nn
+from torch.nn import CrossEntropyLoss
 
 from src.Architecture.Generator import Generator
 
@@ -10,8 +11,9 @@ from src.Architecture.Generator import Generator
 class AdversarialGenerator(Generator):
     def __init__(self, model: nn.Module,
                  image_shape: Sequence[int],
+                 loss: nn.Module = CrossEntropyLoss(),
                  alpha: float = 1.0):
-        super().__init__(model, alpha)
+        super().__init__(model, loss, alpha)
         self.image_shape = image_shape
 
         self.adversarial = BasicUNet(in_channels=2,
