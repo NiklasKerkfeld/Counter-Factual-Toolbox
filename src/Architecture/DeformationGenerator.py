@@ -70,7 +70,7 @@ class ElasticDeformation2D(Generator):
             adapted image and the cost of that adaption
         """
         grid = self.grid()
-        new_image = F.grid_sample(input, grid, padding_mode='reflection', align_corners=True)
+        new_image = F.grid_sample(input, grid, padding_mode='reflection')
         return new_image, torch.mean(torch.abs(self.dx)) + torch.mean(torch.abs(self.dy))
 
     def visualize(self, image: torch.Tensor, target: torch.Tensor):

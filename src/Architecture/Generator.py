@@ -73,30 +73,30 @@ class Generator(nn.Module):
             original_prediction = F.softmax(original_prediction, dim=1)[0, 1].cpu()
             deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
 
-        image = image[0, 0].cpu()
-        new_image = new_image[0, 0].cpu()
+        image = image[0].cpu()
+        new_image = new_image[0].cpu()
         target = target.cpu()
 
         # Original image - 2 channels stacked vertically
         plt.subplot(3, 3, 2)
         plt.title("Original - t1w")
-        plt.imshow(image[..., 0], cmap='gray')
+        plt.imshow(image[0], cmap='gray')
         plt.axis('off')
 
         plt.subplot(3, 3, 5)
         plt.title("Original - FLAIR")
-        plt.imshow(image[..., 1], cmap='gray')
+        plt.imshow(image[1], cmap='gray')
         plt.axis('off')
 
         # Modified image - 2 channels stacked vertically
         plt.subplot(3, 3, 3)
         plt.title("Modified - t1w")
-        plt.imshow(new_image[..., 0], cmap='gray')
+        plt.imshow(new_image[0], cmap='gray')
         plt.axis('off')
 
         plt.subplot(3, 3, 6)
         plt.title("Modified - FLAIR")
-        plt.imshow(new_image[..., 1], cmap='gray')
+        plt.imshow(new_image[1], cmap='gray')
         plt.axis('off')
 
         # Remaining images

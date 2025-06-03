@@ -1,5 +1,6 @@
 import torch
 from torch.nn import CrossEntropyLoss
+import torch.nn.functional as F
 from torch.optim import Adam
 from tqdm import trange
 
@@ -16,6 +17,9 @@ def main(generator: Generator, optimizer: Adam, steps: int = 100):
     item = load_data('data/Dataset101_fcd/sub-00001', device=device, slice=144)
     image = item['tensor'][None].to(device)
     target = item['target'].to(device)
+
+    # grid = F.affine_grid(torch.tensor([[[1.0, -0.0, 0.1], [0.0, 1.0, 0.0]], [[1.0, -0.0, 0.1], [0.0, 1.0, 0.0]]], device=device), [2, 1, 160, 256])
+    # image = F.grid_sample(image.permute(1, 0, 2, 3), grid, padding_mode='reflection').permute(1, 0, 2, 3)
 
     print("starting process...")
     bar = trange(steps, desc='generating...')
@@ -43,12 +47,15 @@ def main(generator: Generator, optimizer: Adam, steps: int = 100):
 if __name__ == '__main__':
     from src.Architecture.ChangeGenerator import ChangeGenerator
     from src.Architecture.DeformationGenerator import ElasticDeformation2D
+    from src.Architecture.AffineGenerator import AffineGenerator
 
     model = get_network(configuration='2d', fold=0)
     loss = MaskedCrossentropy()
     # generator = ElasticDeformation2D(model, (160, 256), (20, 32), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
-    generator = ChangeGenerator(model, (2, 160, 256), loss=loss, alpha=10.0)
+    generator = AffineGenerator(model, loss=loss, alpha=1.0)
     optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
     main(generator, optimizer)
+
+    print(generator.theta)
