@@ -3,20 +3,19 @@ from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from tqdm import trange
 
+from src.Architecture.CustomLoss import MaskedCrossentropy
 from src.Architecture.Generator import Generator
 from src.utils import get_network, load_data
 
 
 def main(generator: Generator, optimizer: Adam, steps: int = 100):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
     generator.to(device)
+    print(f"Using device: {device}")
 
     item = load_data('data/Dataset101_fcd/sub-00001', device=device, slice=144)
     image = item['tensor'][None].to(device)
     target = item['target'].to(device)
-    print(f"{target.max()=}")
 
     print("starting process...")
     bar = trange(steps, desc='generating...')
@@ -46,9 +45,10 @@ if __name__ == '__main__':
     from src.Architecture.DeformationGenerator import ElasticDeformation2D
 
     model = get_network(configuration='2d', fold=0)
-    # generator = ElasticDeformation2D(model, (160, 256), (20, 32), alpha=.001)
+    loss = MaskedCrossentropy()
+    # generator = ElasticDeformation2D(model, (160, 256), (20, 32), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
-    generator = ChangeGenerator(model, (160, 256))
+    generator = ChangeGenerator(model, (2, 160, 256), loss=loss, alpha=10.0)
     optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
     main(generator, optimizer)

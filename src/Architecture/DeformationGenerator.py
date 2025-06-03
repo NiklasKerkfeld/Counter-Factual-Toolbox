@@ -4,8 +4,8 @@ from typing import Tuple
 
 import torch
 import torch.nn.functional as F
-from matplotlib import pyplot as plt
 from torch import nn
+from torch.nn import CrossEntropyLoss
 
 from src.Architecture.Generator import Generator
 from src.utils import visualize_deformation_field
@@ -16,6 +16,7 @@ class ElasticDeformation2D(Generator):
     def __init__(self, model: nn.Module,
                  image_shape: Tuple[int, int],
                  parameter_grid_shape: Tuple[int, int],
+                 loss: nn.Module = CrossEntropyLoss(),
                  alpha: float = 1.0):
         """
         2D elastic deformation.
@@ -26,7 +27,7 @@ class ElasticDeformation2D(Generator):
             parameter_grid_shape: number of parameters in every image dimension
             alpha: weight of the adaption cost in comparison to the prediction loss
         """
-        super().__init__(model, alpha)
+        super().__init__(model, loss, alpha)
 
         self.H, self.W = self.image_shape = image_shape
         self.grid_shape = parameter_grid_shape
@@ -77,6 +78,7 @@ class ElasticDeformation2D(Generator):
 
         with torch.no_grad():
             new_image, _ = self.adapt(image)
+            new_image = new_image[0, 0].cpu()
 
         visualize_deformation_field(new_image,
                                     self.dx[0, 0].detach().cpu().numpy(),
@@ -90,8 +92,9 @@ class ElasticDeformation3D(Generator):
     def __init__(self, model: nn.Module,
                  image_shape: Tuple[int, int, int],
                  parameter_grid_shape: Tuple[int, int, int],
+                 loss: nn.Module = CrossEntropyLoss(),
                  alpha: float = 1.0):
-        super().__init__(model, alpha)
+        super().__init__(model, loss, alpha)
         """
         3D elastic deformation.
         

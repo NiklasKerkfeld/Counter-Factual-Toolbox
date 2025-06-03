@@ -11,7 +11,8 @@ from torch.nn import CrossEntropyLoss
 
 class Generator(nn.Module):
     """Super class for image adaption."""
-    def __init__(self, model: nn.Module, alpha: float = 1.0):
+
+    def __init__(self, model: nn.Module, loss=CrossEntropyLoss(), alpha: float = 1.0):
         """
         Super class for image adaption.
 
@@ -23,7 +24,7 @@ class Generator(nn.Module):
         self.model = model
         self.alpha = alpha
 
-        self.loss = CrossEntropyLoss()
+        self.loss = loss
 
         self.model.eval()
 
@@ -76,33 +77,46 @@ class Generator(nn.Module):
         new_image = new_image[0, 0].cpu()
         target = target.cpu()
 
-        # Plotting
-        plt.subplot(2, 3, 2)
-        plt.title("Original")
-        plt.imshow(image, cmap='gray')
+        # Original image - 2 channels stacked vertically
+        plt.subplot(3, 3, 2)
+        plt.title("Original - t1w")
+        plt.imshow(image[..., 0], cmap='gray')
         plt.axis('off')
 
-        plt.subplot(2, 3, 3)
-        plt.title("Modified")
-        plt.imshow(new_image, cmap='gray')
+        plt.subplot(3, 3, 5)
+        plt.title("Original - FLAIR")
+        plt.imshow(image[..., 1], cmap='gray')
         plt.axis('off')
 
-        plt.subplot(2, 3, 4)
+        # Modified image - 2 channels stacked vertically
+        plt.subplot(3, 3, 3)
+        plt.title("Modified - t1w")
+        plt.imshow(new_image[..., 0], cmap='gray')
+        plt.axis('off')
+
+        plt.subplot(3, 3, 6)
+        plt.title("Modified - FLAIR")
+        plt.imshow(new_image[..., 1], cmap='gray')
+        plt.axis('off')
+
+        # Remaining images
+        plt.subplot(3, 3, 7)
         plt.title("Target")
         plt.imshow(target[0], cmap='gray')
         plt.axis('off')
 
-        plt.subplot(2, 3, 5)
+        plt.subplot(3, 3, 8)
         plt.title("Original prediction")
         plt.imshow(original_prediction, cmap='gray')
         plt.axis('off')
 
-        plt.subplot(2, 3, 6)
+        plt.subplot(3, 3, 9)
         plt.title("Modified prediction")
         plt.imshow(deformed_prediction, cmap='gray')
         plt.axis('off')
 
         plt.tight_layout()
         plt.savefig("logs/result.png", dpi=750)
+        plt.close()
 
         print(f"Comparison of the results saved to logs/result.png")
