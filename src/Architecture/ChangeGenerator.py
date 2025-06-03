@@ -3,6 +3,8 @@
 from typing import Sequence, Tuple
 
 import torch
+import torch.nn.functional as F
+from matplotlib import pyplot as plt
 from torch import nn
 
 from src.Architecture.Generator import Generator
@@ -28,5 +30,4 @@ class ChangeGenerator(Generator):
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         return input + self.change, torch.mean(torch.abs(self.change))
-    
 

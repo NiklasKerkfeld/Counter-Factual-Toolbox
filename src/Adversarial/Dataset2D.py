@@ -1,6 +1,6 @@
 import glob
 import os.path
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict
 
 import torch
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd, NormalizeIntensityd, \
@@ -8,7 +8,8 @@ from monai.transforms import Compose, LoadImaged, ResampleToMatchd, NormalizeInt
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from src.Framework.utils import get_image_files, AddMissingd
+from src.Architecture.CustomTransforms import AddMissingd
+from src.utils import get_image_files
 
 exceptions = ['sub-00002',
               'sub-00074',

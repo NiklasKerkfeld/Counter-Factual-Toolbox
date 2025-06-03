@@ -11,7 +11,7 @@ from dash import html, dcc, Output, Input, ctx
 from matplotlib import pyplot as plt
 from monai.transforms import LoadImaged, Compose, ResampleToMatchd
 
-from src.Framework.utils import AddMissingd
+from src.Architecture.CustomTransforms import AddMissingd
 
 
 def load(path: str):

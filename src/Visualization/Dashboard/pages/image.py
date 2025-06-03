@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 from dash import html, Input, Output, callback, ALL, dcc, ctx, MATCH, State
 
+import src.utils
 from src.Visualization.Dashboard.load import loader
 from src.Visualization.Dashboard.utils import blend_segmentation, pad, blend_change
 
@@ -206,7 +207,7 @@ def get_image(dataset: str,
     img_pil.rotate(90)
 
     buf = io.BytesIO()
-    img_pil.save(buf, format='PNG')
+    src.utils.save(buf, format='PNG')
     encoded = base64.b64encode(buf.getvalue()).decode()
     return f"data:image/png;base64,{encoded}"
 

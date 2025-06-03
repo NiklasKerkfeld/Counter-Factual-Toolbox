@@ -7,7 +7,8 @@ from monai.transforms import Compose, LoadImaged, ResampleToMatchd, NormalizeInt
     ConcatItemsd, ToTensord, DeleteItemsd, CenterSpatialCropd, CastToTyped
 from torch.utils.data import Dataset
 
-from src.Framework.utils import get_image_files, save, AddMissingd
+from src.Architecture.CustomTransforms import AddMissingd
+from src.utils import save, get_image_files
 
 train_transformations = Compose([
     LoadImaged(keys=['t1w', 'FLAIR', 'change'],

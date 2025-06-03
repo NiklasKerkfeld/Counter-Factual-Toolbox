@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from monai.transforms import Compose, LoadImaged, ResampleToMatchd
 
-from src.Framework.utils import AddMissingd
+from src.Architecture.CustomTransforms import AddMissingd
 
 
 class Loader:

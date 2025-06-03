@@ -4,9 +4,11 @@ from typing import Tuple
 
 import torch
 import torch.nn.functional as F
-from torch import nn, Tensor
+from matplotlib import pyplot as plt
+from torch import nn
 
 from src.Architecture.Generator import Generator
+from src.utils import visualize_deformation_field
 
 
 class ElasticDeformation2D(Generator):
@@ -36,7 +38,7 @@ class ElasticDeformation2D(Generator):
         self.register_buffer('x', x.float())
         self.register_buffer('y', y.float())
 
-    def grid(self) -> Tensor:
+    def grid(self) -> torch.Tensor:
         """
         Interpolates the grid for every pixel from the parameter grid.
 
@@ -56,7 +58,7 @@ class ElasticDeformation2D(Generator):
 
         return torch.stack((y, x), dim=-1).squeeze(0)  # Shape: (1, H, W, 2)
 
-    def adapt(self, input: Tensor) -> Tuple[Tensor, Tensor]:
+    def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Adapts the given image via elastic deformation.
 
@@ -69,6 +71,18 @@ class ElasticDeformation2D(Generator):
         grid = self.grid()
         new_image = F.grid_sample(input, grid, padding_mode='reflection', align_corners=True)
         return new_image, torch.mean(torch.abs(self.dx)) + torch.mean(torch.abs(self.dy))
+
+    def visualize(self, image: torch.Tensor, target: torch.Tensor):
+        super().visualize(image, target)
+
+        with torch.no_grad():
+            new_image, _ = self.adapt(image)
+
+        visualize_deformation_field(new_image,
+                                    self.dx[0, 0].detach().cpu().numpy(),
+                                    self.dy[0, 0].detach().cpu().numpy(),
+                                    scale=1)
+
 
 
 class ElasticDeformation3D(Generator):
@@ -100,7 +114,7 @@ class ElasticDeformation3D(Generator):
         self.register_buffer('y', y.float())
         self.register_buffer('z', z.float())
 
-    def grid(self) -> Tensor:
+    def grid(self) -> torch.Tensor:
         """
         Interpolates the grid for every pixel from the parameter grid.
 
@@ -123,7 +137,7 @@ class ElasticDeformation3D(Generator):
 
         return torch.stack((y, x, z), dim=-1).squeeze(0)  # Shape: (1, H, W, D, 3)
 
-    def adapt(self, input: Tensor) -> Tuple[Tensor, Tensor]:
+    def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Adapts the given image via elastic deformation.
 
