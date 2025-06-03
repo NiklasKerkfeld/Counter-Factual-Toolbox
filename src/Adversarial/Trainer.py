@@ -138,7 +138,7 @@ class Trainer:
                        flair=normalize(tensor[1]),
                        prediction=pred[0, 1])
 
-    def generate_distributed(self, worker=4, alpha: float = 1.0):
+    def generate_distributed(self, worker=16, alpha: float = 1.0):
         self.generator.alpha = alpha
         ctx = get_context('spawn')
         job_queue = ctx.Queue()
