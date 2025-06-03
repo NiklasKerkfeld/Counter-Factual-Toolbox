@@ -2,13 +2,13 @@ import argparse
 import copy
 import os
 from typing import Dict
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
-from torch.multiprocessing import get_context
 
 from tqdm import tqdm
 
@@ -19,29 +19,25 @@ from src.utils import normalize, get_network
 
 EXAMPLE = 722
 
-def worker_loop(device, job_queue, result_queue, dataset, base_generator, steps):
+
+def worker_loop(job_idx, device, dataset, base_generator, steps):
     generator = copy.deepcopy(base_generator).to(device)
 
-    while True:
-        job_idx = job_queue.get()
-        if job_idx is None:
-            break  # shutdown signal
+    image, target, _ = dataset[job_idx]
+    image = image[None].to(device)
+    target = target[None].to(device)
 
-        image, target, _ = dataset[job_idx]
-        image = image[None].to(device)
-        target = target[None].to(device)
+    generator.reset()
+    optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
-        generator.reset()
-        optimizer = torch.optim.Adam([generator.change], lr=1e-1)
+    for _ in range(steps):
+        optimizer.zero_grad()
+        loss = generator(image, target)
+        loss.backward()
+        optimizer.step()
 
-        for _ in range(steps):
-            optimizer.zero_grad()
-            loss = generator(image, target)
-            loss.backward()
-            optimizer.step()
-
-        dataset[job_idx][2].copy_(generator.change.data.cpu())
-        result_queue.put(loss.detach().cpu().item())
+    dataset[job_idx][2].copy_(generator.change.data.cpu())
+    return loss.item()
 
 
 
@@ -139,43 +135,34 @@ class Trainer:
                        prediction=pred[0, 1])
 
     def generate_distributed(self, worker=16, alpha: float = 1.0):
+        torch.multiprocessing.set_start_method('spawn', force=True)
         self.generator.alpha = alpha
-        ctx = get_context('spawn')
-        job_queue = ctx.Queue()
-        result_queue = ctx.Queue()
 
         numb_gpus = torch.cuda.device_count()
         gpus = [torch.device(f'cuda:{i}') for i in range(numb_gpus)]
 
-        base_generator = copy.deepcopy(self.generator).cpu()
+        futures = []
+        with ProcessPoolExecutor(max_workers=worker) as executor:
+            for idx in range(len(self.dataset)):
+                futures.append(executor.submit(
+                    worker_loop,
+                    idx,
+                    gpus[idx % numb_gpus],
+                    self.dataset,
+                    self.generator,
+                    self.steps
+                ))
 
-        workers = []
-        for i in range(worker):
-            p = ctx.Process(
-                target=worker_loop, # worker_id, job_queue, result_queue, dataset, base_generator, steps
-                args=(gpus[i % numb_gpus], job_queue, result_queue, self.dataset, base_generator, self.steps)
-            )
-            p.start()
-            workers.append(p)
-
-        for idx in range(len(self.dataset)):
-            job_queue.put(idx)
-
-        for _ in range(worker):
-            job_queue.put(None)
-
-        loss_lst = []
-        for _ in tqdm(range(len(self.dataset)), desc="collecting results"):
-            loss_lst.append(result_queue.get())
-
-        for p in workers:
-            p.join()
+            loss_lst = []
+            for f in tqdm(as_completed(futures), total=len(futures)):
+                loss_lst.append(f.result())
 
         print(f"finished generating with an average loss of {np.mean(loss_lst)}")
+        self.log_loss("generating", loss=np.mean(loss_lst))
+
         image, _, change = self.dataset[EXAMPLE]
         tensor = image + change
         pred = F.softmax(self.generator.model(tensor[None].to(self.device)), dim=1)
-        self.log_loss("generating", loss=np.mean(loss_lst))
         self.log_image("generating",
                        change_t1w=torch.abs(change[0]),
                        change_flair=torch.abs(change[1]),
