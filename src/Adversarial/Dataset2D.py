@@ -21,7 +21,7 @@ exceptions = ['sub-00002',
 
 
 class Dataset2D(Dataset):
-    def __init__(self, path: str, slice_dim: int = 0):
+    def __init__(self, path: str, slice_dim: int = 2):
         super().__init__()
 
         self.slice_dim = slice_dim + 1
@@ -34,7 +34,7 @@ class Dataset2D(Dataset):
             ToTensord(keys=['change'])
         ])
 
-        for x in tqdm([x for x in glob.glob(f"{path}/sub-*")[:5] if os.path.isdir(x)],
+        for x in tqdm([x for x in sorted(glob.glob(f"{path}/sub-*"), key=lambda x: int(x[-5:]))[:5] if os.path.isdir(x)],
                       desc='loading data'):
             if os.path.basename(x) in exceptions:
                 continue

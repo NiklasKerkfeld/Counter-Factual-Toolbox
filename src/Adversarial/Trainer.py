@@ -1,5 +1,4 @@
 import argparse
-import copy
 import os
 from typing import Dict
 
@@ -16,27 +15,7 @@ from src.Architecture.AdversarialGenerator import AdversarialGenerator
 from src.Architecture.CustomLoss import MaskedCrossentropy
 from src.utils import normalize, get_network
 
-EXAMPLE = 722
-
-
-def worker_loop(job_idx, device, dataset, base_generator, steps):
-    generator = copy.deepcopy(base_generator).to(device)
-
-    image, target, _ = dataset[job_idx]
-    image = image[None].to(device)
-    target = target[None].to(device)
-
-    generator.reset()
-    optimizer = torch.optim.Adam([generator.change], lr=1e-1)
-
-    for _ in range(steps):
-        optimizer.zero_grad()
-        loss = generator(image, target)
-        loss.backward()
-        optimizer.step()
-
-    dataset[job_idx][2].copy_(generator.change.data.cpu())
-    return loss.item()
+EXAMPLE = 417
 
 
 class Trainer:
@@ -52,7 +31,7 @@ class Trainer:
         print(f"Using device: {self.device}")
 
         self.model = get_network(configuration='2d', fold=0)
-        self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 256, 256), loss=MaskedCrossentropy())
+        self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 160, 256), loss=MaskedCrossentropy())
         self.generator.to(self.device)
         self.loss_fn = torch.nn.MSELoss()
 
