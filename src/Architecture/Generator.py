@@ -1,11 +1,13 @@
 """Super class for image adaption."""
 import os
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
+from monai.visualize import GradCAM
 from torch import nn
 from torch.nn import CrossEntropyLoss
 
@@ -64,8 +66,19 @@ class Generator(nn.Module):
         """Resets all parameters so a new image can be generated."""
         pass
 
-    def visualize(self, image: torch.Tensor, target: torch.Tensor, name: str = 'generate'):
+    def visualize(self, image: torch.Tensor, target: torch.Tensor, losses: List[float], name: str = 'generate'):
         """Visualizes the results."""
+
+        os.makedirs(f"Results/{name}", exist_ok=True)
+
+        # plot loss curve
+        plt.plot(losses)
+        plt.xlabel('step')
+        plt.ylabel('loss')
+        plt.title('Loss over generation process')
+        plt.savefig(f"Results/{name}/loss_curve.png")
+
+        # calculate predictions
         with torch.no_grad():
             new_image, _ = self.adapt(image)
             original_prediction = self.model(image)
@@ -74,23 +87,35 @@ class Generator(nn.Module):
             original_prediction = F.softmax(original_prediction, dim=1)[0, 1].cpu()
             deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
 
+        # plot Grad Cam maps
+        plt.figure(figsize=(10, 10))
+        self.get_class_activation_map(image, 1)
+        self.get_class_activation_map(new_image,2)
+
+        plt.tight_layout()
+        plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
+        plt.close()
+
+        print(f"Grad-Cam image of the results saved to Results/{name}/GradCam.png")
+
+        # plot overview
         image = image[0].cpu()
         new_image = new_image[0].cpu()
         target = target.cpu()
 
-        plt.figure(figsize=(15, 12))
-        self.plot_visualization(image)
+        plt.figure(figsize=(12, 10))
+        self.plot_visualization(image, new_image)
         self.plot_original(image)
         self.plot_modified(new_image)
         self.plot_results(image, target, new_image, original_prediction, deformed_prediction)
 
-        os.makedirs("Results", exist_ok=True)
         plt.tight_layout()
-        plt.savefig(f"Results/{name}.png", dpi=750)
+        plt.savefig(f"Results/{name}/overview.png", dpi=750)
         plt.close()
-        print(f"Comparison of the results saved to Results/{name}.png")
+        print(f"Overview of the results saved to Results/{name}/overview.png")
 
-    def plot_visualization(self, image: torch.Tensor):
+
+    def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
         plt.title("Dummy")
         plt.axis('off')
@@ -147,3 +172,17 @@ class Generator(nn.Module):
              np.zeros_like(deformed_prediction[None]), deformed_prediction[None] > .1),
             axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
+
+    def get_class_activation_map(self, image, i):
+        cam = GradCAM(nn_module=self.model, target_layers="decoder.seg_layers.4")
+        activation_map = cam(x=image, class_idx=0).detach().cpu() ** 2
+
+        plt.subplot(1, 2, i)
+        plt.title("Modified input image" if i == 2 else "Original image")
+        plt.imshow(image[0, 0].detach().cpu(), cmap='gray')
+        plt.imshow(np.concatenate(
+            (activation_map[0], np.zeros_like(activation_map[0]),
+             np.zeros_like(activation_map[0]), activation_map[0] > .1),
+            axis=0).astype(float).transpose(1, 2, 0), alpha=0.5, norm=TwoSlopeNorm(0.0))
+        plt.axis('off')
+

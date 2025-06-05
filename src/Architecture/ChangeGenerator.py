@@ -35,7 +35,7 @@ class ChangeGenerator(Generator):
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         return input + self.change, torch.mean(torch.abs(self.change))
 
-    def plot_visualization(self, image):
+    def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
         plt.title("Change - t1w")
         plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0))
