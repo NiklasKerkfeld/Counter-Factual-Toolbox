@@ -2,7 +2,6 @@ import argparse
 import copy
 import os
 from typing import Dict
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 import torch
@@ -72,10 +71,12 @@ class Trainer:
         self.epoch = 0
 
         image, target, _ = self.dataset[EXAMPLE]
+        pred = F.softmax(self.generator.model(image[None].to(self.device)), dim=1)
         self.log_image("original",
                        t1w=normalize(image[0]),
                        flair=normalize(image[1]),
-                       target=target)
+                       target=target,
+                       prediction=pred[0, 1])
 
     def train_adversarial(self):
         optimizer = torch.optim.Adam(self.generator.adversarial.parameters(), lr=1e-3)
