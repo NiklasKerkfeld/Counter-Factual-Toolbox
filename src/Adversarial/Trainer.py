@@ -276,6 +276,8 @@ if __name__ == '__main__':
     trainer = Trainer(iterations=args.iterations,
                       epochs=args.epochs,
                       steps=args.steps,
-                      name=args.name)
+                      name=args.name,
+                      batch_size=args.batchsize,
+                      alpha=args.alpha)
 
     trainer.train()
