@@ -40,26 +40,29 @@ def worker_loop(job_idx, device, dataset, base_generator, steps):
     return loss.item()
 
 
-
 class Trainer:
-    def __init__(self, iterations: int, epochs: int, steps: int, name: str):
+    def __init__(self, iterations: int, name: str, epochs: int, steps: int, batch_size: int, alpha: float):
         self.iterations = iterations
         self.epochs = epochs
         self.steps = steps
         self.name = name
+        self.batch_size = batch_size
+        self.alpha = alpha
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
 
         self.model = get_network(configuration='2d', fold=0)
-        self.generator = AdversarialGenerator(self.model, (2, 256, 256), loss=MaskedCrossentropy())
+        self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 256, 256), loss=MaskedCrossentropy())
         self.generator.to(self.device)
         self.loss_fn = torch.nn.MSELoss()
 
         self.dataset = Dataset2D("data/Dataset101_fcd")
-        self.dataloader_gen = DataLoader(self.dataset)
+        self.dataloader_gen = DataLoader(self.dataset,
+                                         batch_size=self.batch_size,
+                                         shuffle=False)
         self.dataloader_train = DataLoader(self.dataset,
-                                           batch_size=16,
+                                           batch_size=self.batch_size,
                                            shuffle=True)
 
         # setup tensorboard
@@ -119,50 +122,20 @@ class Trainer:
                 loss.backward()
                 optimizer.step()
 
+            # save generated change in dataset
+            change = self.generator.change.data.cpu()
+            for i in range(self.batch_size):
+                self.dataset[idx * self.batch_size + i][2].copy_(change[i])
+
             loss_lst.append(loss.detach().cpu().item())
-            self.dataset[idx][2].copy_(self.generator.change.data.cpu())
 
+
+        # logging
         print(f"finished generating with an average loss of {np.mean(loss_lst)}")
         image, _, change = self.dataset[EXAMPLE]
         tensor = image + change
         pred = F.softmax(self.generator.model(tensor[None].to(self.device)), dim=1)
         self.log_loss("generating", loss=np.mean(loss_lst))
-        self.log_image("generating",
-                       change_t1w=torch.abs(change[0]),
-                       change_flair=torch.abs(change[1]),
-                       t1w=normalize(tensor[0]),
-                       flair=normalize(tensor[1]),
-                       prediction=pred[0, 1])
-
-    def generate_distributed(self, worker=16, alpha: float = 1.0):
-        torch.multiprocessing.set_start_method('spawn', force=True)
-        self.generator.alpha = alpha
-
-        numb_gpus = torch.cuda.device_count()
-        gpus = [torch.device(f'cuda:{i}') for i in range(numb_gpus)]
-
-        futures = []
-        with ProcessPoolExecutor(max_workers=worker) as executor:
-            for idx in range(len(self.dataset)):
-                futures.append(executor.submit(
-                    worker_loop,
-                    idx,
-                    gpus[idx % numb_gpus],
-                    self.dataset,
-                    self.generator,
-                    self.steps
-                ))
-
-            loss_lst = []
-            for f in tqdm(as_completed(futures), total=len(futures)):
-                loss_lst.append(f.result())
-
-        print(f"finished generating with an average loss of {np.mean(loss_lst)}")
-        self.log_loss("generating", loss=np.mean(loss_lst))
-
-        image, _, change = self.dataset[EXAMPLE]
-        tensor = image + change
-        pred = F.softmax(self.generator.model(tensor[None].to(self.device)), dim=1)
         self.log_image("generating",
                        change_t1w=torch.abs(change[0]),
                        change_flair=torch.abs(change[1]),
@@ -171,9 +144,11 @@ class Trainer:
                        prediction=pred[0, 1])
 
     def train(self):
+        self.generate(alpha=0.0)
         for i in range(self.iterations):
-            self.generate_distributed(alpha=min([float(i), 1.0]))
             self.train_adversarial()
+            if i != self.iterations - 1:
+                self.generate(alpha=self.alpha)
 
     def save(self, name: str = "") -> None:
         """
@@ -271,6 +246,23 @@ def get_args() -> argparse.Namespace:
         default=15,
         help="Number of epochs",
     )
+
+    parser.add_argument(
+        "--alpha",
+        "-a",
+        type=float,
+        default=1.0,
+        help="Ratio of adversarial loss to general loss",
+    )
+
+    parser.add_argument(
+        "--batchsize",
+        "-b",
+        type=int,
+        default=16,
+        help="Batch size",
+    )
+
 
     return parser.parse_args()
 
