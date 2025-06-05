@@ -1,3 +1,4 @@
+import glob
 from typing import Optional
 
 import torch
@@ -10,13 +11,13 @@ from src.Architecture.Generator import Generator
 from src.utils import get_network, load_image, get_max_slice, dice
 
 
-def main(generator: Generator, optimizer: Adam, steps: int = 100, slice_idx: Optional[int] = None,
-         slice_dim: int = 2):
+def main(path: str, generator: Generator, optimizer: Adam, steps: int = 100, slice_idx: Optional[int] = None,
+         slice_dim: int = 2, name: str = 'generation'):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     generator.to(device)
     print(f"Using device: {device}")
 
-    item = load_image('data/Dataset101_fcd/sub-00001')
+    item = load_image(path)
 
     if slice_idx is None:
         slice_idx, size = get_max_slice(item['target'], slice_dim + 1)
@@ -52,7 +53,7 @@ def main(generator: Generator, optimizer: Adam, steps: int = 100, slice_idx: Opt
     print(
         f"The Dice score increased from {original_dice} to {deformed_dice}.")
 
-    generator.visualize(image, target)
+    generator.visualize(image, target, f"{len(glob.glob(f'Results/*'))}_{name}")
 
 
 if __name__ == '__main__':
@@ -62,9 +63,9 @@ if __name__ == '__main__':
 
     model = get_network(configuration='2d', fold=0)
     loss = MaskedCrossentropy()
-    # generator = ElasticDeformation2D(model, (160, 256), (20, 32), loss=loss, alpha=.001)
-    # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
-    generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
-    optimizer = torch.optim.Adam([generator.change], lr=1e-1)
+    generator = ElasticDeformation2D(model, (1, 2, 160, 256), (20, 32), loss=loss, alpha=.001)
+    optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
+    # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
+    # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
-    main(generator, optimizer)
+    main('data/Dataset101_fcd/sub-00003', generator, optimizer)

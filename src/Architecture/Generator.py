@@ -1,7 +1,8 @@
 """Super class for image adaption."""
-
+import os
 from typing import Tuple
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
@@ -63,7 +64,7 @@ class Generator(nn.Module):
         """Resets all parameters so a new image can be generated."""
         pass
 
-    def visualize(self, image: torch.Tensor, target: torch.Tensor):
+    def visualize(self, image: torch.Tensor, target: torch.Tensor, name: str = 'generate'):
         """Visualizes the results."""
         with torch.no_grad():
             new_image, _ = self.adapt(image)
@@ -77,7 +78,28 @@ class Generator(nn.Module):
         new_image = new_image[0].cpu()
         target = target.cpu()
 
-        # Original image - 2 channels stacked vertically
+        plt.figure(figsize=(15, 12))
+        self.plot_visualization(image)
+        self.plot_original(image)
+        self.plot_modified(new_image)
+        self.plot_results(image, target, new_image, original_prediction, deformed_prediction)
+
+        os.makedirs("Results", exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(f"Results/{name}.png", dpi=750)
+        plt.close()
+        print(f"Comparison of the results saved to Results/{name}.png")
+
+    def plot_visualization(self, image: torch.Tensor):
+        plt.subplot(3, 3, 1)
+        plt.title("Dummy")
+        plt.axis('off')
+
+        plt.subplot(3, 3, 4)
+        plt.title("Dummy")
+        plt.axis('off')
+
+    def plot_original(self, image):
         plt.subplot(3, 3, 2)
         plt.title("Original - t1w")
         plt.imshow(image[0], cmap='gray')
@@ -88,7 +110,7 @@ class Generator(nn.Module):
         plt.imshow(image[1], cmap='gray')
         plt.axis('off')
 
-        # Modified image - 2 channels stacked vertically
+    def plot_modified(self, new_image):
         plt.subplot(3, 3, 3)
         plt.title("Modified - t1w")
         plt.imshow(new_image[0], cmap='gray')
@@ -99,24 +121,29 @@ class Generator(nn.Module):
         plt.imshow(new_image[1], cmap='gray')
         plt.axis('off')
 
-        # Remaining images
+    def plot_results(self, image, target, new_image, original_prediction, deformed_prediction):
         plt.subplot(3, 3, 7)
         plt.title("Target")
-        plt.imshow(target[0], cmap='gray')
+        plt.imshow(image[0], cmap='gray')
+        plt.imshow(
+            np.concatenate((target, np.zeros_like(target), np.zeros_like(target), target > .1),
+                           axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
 
         plt.subplot(3, 3, 8)
         plt.title("Original prediction")
-        plt.imshow(original_prediction, cmap='gray')
+        plt.imshow(image[0], cmap='gray')
+        plt.imshow(np.concatenate(
+            (original_prediction[None], np.zeros_like(original_prediction[None]),
+             np.zeros_like(original_prediction[None]), original_prediction[None] > .1),
+            axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
 
         plt.subplot(3, 3, 9)
         plt.title("Modified prediction")
-        plt.imshow(deformed_prediction, cmap='gray')
+        plt.imshow(new_image[0], cmap='gray')
+        plt.imshow(np.concatenate(
+            (deformed_prediction[None], np.zeros_like(deformed_prediction[None]),
+             np.zeros_like(deformed_prediction[None]), deformed_prediction[None] > .1),
+            axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
-
-        plt.tight_layout()
-        plt.savefig("logs/result.png", dpi=750)
-        plt.close()
-
-        print(f"Comparison of the results saved to logs/result.png")

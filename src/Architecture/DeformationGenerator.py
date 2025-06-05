@@ -1,20 +1,21 @@
 """Classes for 2D and 3D Deformation"""
-
+import os
 from typing import Tuple
 
+import numpy as np
 import torch
 import torch.nn.functional as F
+from matplotlib import pyplot as plt
 from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from src.Architecture.Generator import Generator
-from src.utils import visualize_deformation_field
 
 
 class ElasticDeformation2D(Generator):
     """"2D elastic deformation."""
     def __init__(self, model: nn.Module,
-                 image_shape: Tuple[int, int],
+                 image_shape: Tuple[int, int, int, int],
                  parameter_grid_shape: Tuple[int, int],
                  loss: nn.Module = CrossEntropyLoss(),
                  alpha: float = 1.0):
@@ -23,21 +24,21 @@ class ElasticDeformation2D(Generator):
 
         Args:
             model: model used for prediction
-            image_shape: shape of the input image
+            image_shape: shape of the input image (B, C, H, W)
             parameter_grid_shape: number of parameters in every image dimension
             alpha: weight of the adaption cost in comparison to the prediction loss
         """
         super().__init__(model, loss, alpha)
 
-        self.H, self.W = self.image_shape = image_shape
+        self.B, self.C, self.H, self.W = self.image_shape = image_shape
         self.grid_shape = parameter_grid_shape
 
-        self.dx = nn.Parameter(torch.zeros(1, 1, *self.grid_shape))
-        self.dy = nn.Parameter(torch.zeros(1, 1, *self.grid_shape))
+        self.dx = nn.Parameter(torch.zeros(self.B, 1, *self.grid_shape))
+        self.dy = nn.Parameter(torch.zeros(self.B, 1, *self.grid_shape))
 
         x, y = torch.meshgrid(torch.arange(self.H), torch.arange(self.W), indexing='ij')
-        self.register_buffer('x', x.float())
-        self.register_buffer('y', y.float())
+        self.register_buffer('x', x.repeat(self.B, 1, 1).float())
+        self.register_buffer('y', y.repeat(self.B, 1, 1).float())
 
     def grid(self) -> torch.Tensor:
         """
@@ -46,8 +47,8 @@ class ElasticDeformation2D(Generator):
         Returns:
             grid with deformation for every pixel
         """
-        nx = F.interpolate(self.dx, self.image_shape, mode='bilinear')
-        ny = F.interpolate(self.dy, self.image_shape, mode='bilinear')
+        nx = F.interpolate(self.dx, (self.H, self.W), mode='bilinear')
+        ny = F.interpolate(self.dy, (self.H, self.W), mode='bilinear')
 
         # Create meshgrid
         x = self.x + nx
@@ -73,18 +74,92 @@ class ElasticDeformation2D(Generator):
         new_image = F.grid_sample(input, grid, padding_mode='reflection')
         return new_image, torch.mean(torch.abs(self.dx)) + torch.mean(torch.abs(self.dy))
 
-    def visualize(self, image: torch.Tensor, target: torch.Tensor):
-        super().visualize(image, target)
+    def plot_visualization(self, image):
+        image_height, image_width = image[0].shape
+        height, width = self.dx[0, 0].shape
 
+        X, Y = np.meshgrid(np.arange(0, image_width, image_width // width),
+                           np.arange(0, image_height, image_height // height))
+
+        plt.subplot(3, 3, 1)
+        plt.title("Deformation")
+        plt.imshow(image[0], cmap='gray')
+        plt.quiver(X, Y, self.dx[0, 0].detach().cpu(), self.dx[0, 0].detach().cpu(), color='red',
+                   angles='xy', scale_units='xy', scale=1)
+        plt.axis('off')
+
+
+def visualize(self, image: torch.Tensor, target: torch.Tensor, name: str = 'deformation'):
+        """Visualizes the results."""
         with torch.no_grad():
             new_image, _ = self.adapt(image)
-            new_image = new_image[0, 0].cpu()
+            original_prediction = self.model(image)
+            deformed_prediction = self.model(new_image)
 
-        visualize_deformation_field(new_image,
-                                    self.dx[0, 0].detach().cpu().numpy(),
-                                    self.dy[0, 0].detach().cpu().numpy(),
-                                    scale=1)
+            original_prediction = F.softmax(original_prediction, dim=1)[0, 1].cpu()
+            deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
 
+        image = image[0].cpu()
+        new_image = new_image[0].cpu()
+        target = target.cpu()
+
+
+
+        # Plotting
+        plt.figure(figsize=(15, 12))
+        plt.subplot(3, 3, 1)
+        plt.title("Deformation")
+        plt.imshow(image[0], cmap='gray')
+        plt.quiver(X, Y, self.dx[0, 0].detach().cpu(), self.dx[0, 0].detach().cpu(), color='red', angles='xy', scale_units='xy', scale=1)
+        plt.axis('off')
+
+        # Original image - 2 channels stacked vertically
+        plt.subplot(3, 3, 2)
+        plt.title("Original - t1w")
+        plt.imshow(image[0], cmap='gray')
+        plt.axis('off')
+
+        plt.subplot(3, 3, 5)
+        plt.title("Original - FLAIR")
+        plt.imshow(image[1], cmap='gray')
+        plt.axis('off')
+
+        # Modified image - 2 channels stacked vertically
+        plt.subplot(3, 3, 3)
+        plt.title("Modified - t1w")
+        plt.imshow(new_image[0], cmap='gray')
+        plt.axis('off')
+
+        plt.subplot(3, 3, 6)
+        plt.title("Modified - FLAIR")
+        plt.imshow(new_image[1], cmap='gray')
+        plt.axis('off')
+
+        # Remaining images
+        plt.subplot(3, 3, 7)
+        plt.title("Target")
+        plt.imshow(image[0], cmap='gray')
+        plt.imshow(np.concatenate((target, np.zeros_like(target), np.zeros_like(target), target > .1), axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
+        plt.axis('off')
+
+        plt.subplot(3, 3, 8)
+        plt.title("Original prediction")
+        plt.imshow(image[0], cmap='gray')
+        plt.imshow(np.concatenate((original_prediction[None], np.zeros_like(original_prediction[None]), np.zeros_like(original_prediction[None]), original_prediction[None] > .1), axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
+        plt.axis('off')
+
+        plt.subplot(3, 3, 9)
+        plt.title("Modified prediction")
+        plt.imshow(new_image[0], cmap='gray')
+        plt.imshow(np.concatenate((deformed_prediction[None], np.zeros_like(deformed_prediction[None]), np.zeros_like(deformed_prediction[None]), deformed_prediction[None] > .1), axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
+        plt.axis('off')
+
+        os.makedirs("Results", exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(f"Results/{name}.png", dpi=750)
+        plt.close()
+
+        print(f"Comparison of the results saved to Results/{name}.png")
 
 
 class ElasticDeformation3D(Generator):

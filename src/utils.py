@@ -61,10 +61,8 @@ def visualize_deformation_field(image, dx, dy, scale=1, color='red'):
                        np.arange(0, image_height, image_height // height))
 
     plt.figure(figsize=(20, 20))
-    if image.ndim == 2:
-        plt.imshow(image, cmap='gray')
-    else:
-        plt.imshow(image)
+    plt.imshow(image, cmap='gray')
+
 
     plt.quiver(X, Y, dx, dy, color=color, angles='xy', scale_units='xy', scale=1 / scale)
 
