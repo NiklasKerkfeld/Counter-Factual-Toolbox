@@ -34,7 +34,7 @@ class Dataset2D(Dataset):
             ToTensord(keys=['change'])
         ])
 
-        for x in tqdm([x for x in sorted(glob.glob(f"{path}/sub-*"), key=lambda x: int(x[-5:]))[:5] if os.path.isdir(x)],
+        for x in tqdm([x for x in sorted(glob.glob(f"{path}/sub-*"), key=lambda x: int(x[-5:])) if os.path.isdir(x)],
                       desc='loading data'):
             if os.path.basename(x) in exceptions:
                 continue
