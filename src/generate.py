@@ -1,25 +1,31 @@
+from typing import Optional
+
 import torch
 from torch.nn import CrossEntropyLoss
-import torch.nn.functional as F
 from torch.optim import Adam
 from tqdm import trange
 
 from src.Architecture.CustomLoss import MaskedCrossentropy
 from src.Architecture.Generator import Generator
-from src.utils import get_network, load_data
+from src.utils import get_network, load_image, get_max_slice, dice
 
 
-def main(generator: Generator, optimizer: Adam, steps: int = 100):
+def main(generator: Generator, optimizer: Adam, steps: int = 100, slice_idx: Optional[int] = None,
+         slice_dim: int = 2):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     generator.to(device)
     print(f"Using device: {device}")
 
-    item = load_data('data/Dataset101_fcd/sub-00001', device=device, slice=144)
-    image = item['tensor'][None].to(device)
-    target = item['target'].to(device)
+    item = load_image('data/Dataset101_fcd/sub-00001')
 
-    # grid = F.affine_grid(torch.tensor([[[1.0, -0.0, 0.1], [0.0, 1.0, 0.0]], [[1.0, -0.0, 0.1], [0.0, 1.0, 0.0]]], device=device), [2, 1, 160, 256])
-    # image = F.grid_sample(image.permute(1, 0, 2, 3), grid, padding_mode='reflection').permute(1, 0, 2, 3)
+    if slice_idx is None:
+        slice_idx, size = get_max_slice(item['target'], slice_dim + 1)
+        print(f"selected slice: {slice_idx} with a target size of {size} pixels.")
+
+    image = item['tensor'].select(slice_dim + 1, slice_idx)[None].to(device)
+    target = item['target'].select(slice_dim + 1, slice_idx).to(device)
+
+    print(f"{image.shape=}, {target.shape=}")
 
     print("starting process...")
     bar = trange(steps, desc='generating...')
@@ -38,8 +44,13 @@ def main(generator: Generator, optimizer: Adam, steps: int = 100):
 
         original_loss = loss(original_prediction, target)
         deformed_loss = loss(deformed_prediction, target)
+        original_dice = dice(torch.argmax(original_prediction, dim=1), target)
+        deformed_dice = dice(torch.argmax(deformed_prediction, dim=1), target)
 
-    print(f"Reduced loss from {original_loss} to {deformed_loss} with an adaption that has a cost of: {cost}.")
+    print(
+        f"Reduced loss from {original_loss} to {deformed_loss} with an adaption that has a cost of: {cost}.")
+    print(
+        f"The Dice score increased from {original_dice} to {deformed_dice}.")
 
     generator.visualize(image, target)
 
@@ -53,9 +64,7 @@ if __name__ == '__main__':
     loss = MaskedCrossentropy()
     # generator = ElasticDeformation2D(model, (160, 256), (20, 32), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
-    generator = AffineGenerator(model, loss=loss, alpha=1.0)
+    generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
     optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
     main(generator, optimizer)
-
-    print(generator.theta)

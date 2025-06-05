@@ -23,7 +23,7 @@ class ChangeGenerator(Generator):
 
         Args:
             model: model used for prediction
-            image_shape: shape of the input image
+            image_shape: shape of the input image (B, C, H, W)
             alpha: weight of the adaption cost in comparison to the prediction loss
         """
         super().__init__(model, loss, alpha)
@@ -52,12 +52,12 @@ class ChangeGenerator(Generator):
         # Plotting
         plt.subplot(3, 3, 1)
         plt.title("Change - t1w")
-        plt.imshow(self.change[0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0))
+        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0))
         plt.axis('off')
 
         plt.subplot(3, 3, 4)
         plt.title("Change - FLAIR")
-        plt.imshow(self.change[1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0))
+        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0))
         plt.axis('off')
 
         # Original image - 2 channels stacked vertically
