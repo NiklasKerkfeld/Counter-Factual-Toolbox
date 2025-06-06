@@ -16,10 +16,13 @@ class AdversarialGenerator(Generator):
         super().__init__(model, loss, alpha)
         self.image_shape = image_shape
 
-        self.adversarial = BasicUNet(in_channels=2,
-                                     out_channels=2,
-                                     spatial_dims=2,
-                                     features=(64, 128, 256, 512, 1024, 128))
+        self.adversarial = torch.nn.Sequential(
+            BasicUNet(in_channels=2,
+                      out_channels=2,
+                      spatial_dims=2,
+                      features=(64, 128, 256, 512, 1024, 128)),
+            nn.ReLU()
+        )
 
         self.change = nn.Parameter(torch.zeros(*self.image_shape))
 

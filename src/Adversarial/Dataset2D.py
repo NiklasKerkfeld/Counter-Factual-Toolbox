@@ -1,6 +1,7 @@
 import glob
 import os.path
 
+import torch
 from monai.transforms import Compose, ToTensord
 from torch.utils.data import Dataset
 from tqdm import tqdm
@@ -18,13 +19,11 @@ exceptions = ['sub-00002',
               'sub-00112']
 
 
-
-
 class Dataset2D(Dataset):
-    def __init__(self, path: str, slice_dim: int = 2):
+    def __init__(self, path: str, slice_dim: int = 2, no_change_p: float = 0.0):
         super().__init__()
-
         self.slice_dim = slice_dim + 1
+        self.no_change_p = no_change_p
 
         self.data = {}
         self.len = 0
@@ -61,6 +60,9 @@ class Dataset2D(Dataset):
         image = item['tensor'].select(self.slice_dim, i)
         target = item['target'].select(self.slice_dim, i)
         change = item['change'].select(self.slice_dim, i)
+
+        if torch.rand(1) < self.no_change_p:
+            change = torch.zeros_like(change)
 
         return image, target[0], change
 

@@ -19,7 +19,13 @@ EXAMPLE = 417
 
 
 class Trainer:
-    def __init__(self, iterations: int, name: str, epochs: int, steps: int, batch_size: int, alpha: float):
+    def __init__(self, iterations: int = 10,
+                 name: str = 'Trainer',
+                 epochs: int = 3,
+                 steps: int = 25,
+                 batch_size: int = 16,
+                 alpha: float = 1.0,
+                 no_change_p: float = 0.0):
         self.iterations = iterations
         self.epochs = epochs
         self.steps = steps
@@ -31,11 +37,12 @@ class Trainer:
         print(f"Using device: {self.device}")
 
         self.model = get_network(configuration='2d', fold=0)
-        self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 160, 256), loss=MaskedCrossentropy())
+        self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 160, 256),
+                                              loss=MaskedCrossentropy())
         self.generator.to(self.device)
         self.loss_fn = torch.nn.MSELoss()
 
-        self.dataset = Dataset2D("data/Dataset101_fcd")
+        self.dataset = Dataset2D("data/Dataset101_fcd", no_change_p=no_change_p)
         self.dataloader_gen = DataLoader(self.dataset,
                                          batch_size=self.batch_size,
                                          shuffle=False)
@@ -72,7 +79,7 @@ class Trainer:
 
                 optimizer.zero_grad()
                 pred = self.generator.adversarial(image + change)
-                loss = self.loss_fn(pred, change)
+                loss = self.loss_fn(pred, torch.abs(change))
                 loss.backward()
                 optimizer.step()
 
@@ -108,7 +115,6 @@ class Trainer:
                 self.dataset[idx * self.batch_size + i][2].copy_(change[i])
 
             loss_lst.append(loss.detach().cpu().item())
-
 
         # logging
         print(f"finished generating with an average loss of {np.mean(loss_lst)}")
@@ -243,6 +249,13 @@ def get_args() -> argparse.Namespace:
         help="Batch size",
     )
 
+    parser.add_argument(
+        "--no_change_p",
+        "-p",
+        type=float,
+        default=0.0,
+        help="probability for dropping change in adversarial training",
+    )
 
     return parser.parse_args()
 
@@ -258,6 +271,7 @@ if __name__ == '__main__':
                       steps=args.steps,
                       name=args.name,
                       batch_size=args.batchsize,
-                      alpha=args.alpha)
+                      alpha=args.alpha,
+                      no_change_p=args.no_change_p)
 
     trainer.train()
