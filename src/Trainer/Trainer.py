@@ -118,6 +118,7 @@ class Trainer:
             bar.set_description(f"validation loss: {loss.item():.8f}")
 
         self.log_loss("validation", loss=np.mean(loss_lst))
+        self.log_loss("validation", dice=np.mean(dice_lst))
 
         image, target = self.valid_dataset[VALID_EXAMPLE]
         pred = F.softmax(self.model(image[None].to(self.device)), dim=1)
