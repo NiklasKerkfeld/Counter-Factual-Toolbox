@@ -16,7 +16,8 @@ from tqdm import tqdm
 from src.Trainer.Dataset2D import Dataset2D
 from src.utils import normalize, dice
 
-EXAMPLE = 417
+TRAIN_EXAMPLE = 417
+VALID_EXAMPLE = 80
 
 
 class Trainer:
@@ -49,7 +50,7 @@ class Trainer:
         self.writer = SummaryWriter(train_log_dir)  # type: ignore
         self.epoch = 0
 
-        image, target = self.train_dataset[EXAMPLE]
+        image, target = self.train_dataset[TRAIN_EXAMPLE]
         pred = F.softmax(self.model(image[None].to(self.device)), dim=1)
         self.log_image("original",
                        t1w=normalize(image[0]),
@@ -91,6 +92,10 @@ class Trainer:
             bar.set_description(f"training loss: {loss.item():.8f}")
         self.log_loss("training", loss=np.mean(loss_lst))
 
+        image, target = self.train_dataset[TRAIN_EXAMPLE]
+        pred = F.softmax(self.model(image[None].to(self.device)), dim=1)
+        self.log_image("training", prediction=pred[0, 1])
+
         return np.mean(loss_lst)
 
     def valid(self):
@@ -112,7 +117,11 @@ class Trainer:
             loss_lst.append(loss.detach().cpu().item())
             bar.set_description(f"validation loss: {loss.item():.8f}")
 
-        self.log_loss("training", loss=np.mean(loss_lst))
+        self.log_loss("validation", loss=np.mean(loss_lst))
+
+        image, target = self.valid_dataset[VALID_EXAMPLE]
+        pred = F.softmax(self.model(image[None].to(self.device)), dim=1)
+        self.log_image("validation", prediction=pred[0, 1])
 
         return np.mean(loss_lst)
 
