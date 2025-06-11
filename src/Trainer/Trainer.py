@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
 from tqdm import tqdm
 
-from src.Adversarial.Dataset2D import Dataset2D
+from src.Trainer.Dataset2D import Dataset2D
 from src.utils import normalize, dice
 
 EXAMPLE = 417
@@ -221,6 +221,6 @@ if __name__ == '__main__':
     trainer = Trainer(model=model,
                       epochs=args.epochs,
                       name=args.name,
-                      batch_size=args.batch_size)
+                      batch_size=args.batchsize)
 
     trainer.train()
