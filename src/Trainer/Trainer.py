@@ -44,7 +44,7 @@ class Trainer:
                                            shuffle=False)
 
         # setup tensorboard
-        train_log_dir = f"logs/adversarial/{self.name}"
+        train_log_dir = f"logs/trainer/{self.name}"
         print(f"{train_log_dir=}")
         self.writer = SummaryWriter(train_log_dir)  # type: ignore
         self.epoch = 0
