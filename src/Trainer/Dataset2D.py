@@ -65,7 +65,7 @@ class Dataset2D(Dataset):
 
 
 if __name__ == '__main__':
-    dataset = Dataset2D("data/Dataset101_fcd", mode='train')
+    dataset = Dataset2D("data/Dataset101_fcd", mode='valid')
     print(len(dataset))
 
     for i in range(len(dataset)):
