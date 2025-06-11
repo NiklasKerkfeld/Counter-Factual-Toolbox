@@ -133,8 +133,8 @@ def get_split():
     split = {}
     df = pd.read_csv('data/Dataset101_fcd/participants.tsv', sep='\t')
     train = list(df[df['split'] == 'train']['participant_id'])
-    split['train'] = train[:-14]
-    split['valid'] = train[-14:]
+    split['train'] = train[14:]
+    split['valid'] = train[:14]
     split['test'] = list(df[df['split'] == 'test']['participant_id'])
 
     return split
