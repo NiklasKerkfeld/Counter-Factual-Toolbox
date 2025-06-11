@@ -132,6 +132,7 @@ def get_max_slice(target: torch.Tensor, dim: int) -> Tuple[int, int]:
 def get_split():
     split = {}
     df = pd.read_csv('data/Dataset101_fcd/participants.tsv', sep='\t')
+    df = df[df['mri_diagnosis'] == 'suspicion']
     train = list(df[df['split'] == 'train']['participant_id'])
     split['train'] = train[14:]
     split['valid'] = train[:14]

@@ -68,8 +68,11 @@ if __name__ == '__main__':
     dataset = Dataset2D("data/Dataset101_fcd", mode='valid')
     print(len(dataset))
 
+    count = 0
     for i in range(len(dataset)):
         _, target = dataset[i]
         if target.sum() > 0:
-            print(i)
+            count += 1
+
+    print(count)
 

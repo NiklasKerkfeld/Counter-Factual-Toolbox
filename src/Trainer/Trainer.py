@@ -108,7 +108,7 @@ class Trainer:
                 loss = self.loss_fn(pred, target)
 
             pred = F.softmax(pred, dim=1)
-            dice_lst.append(dice(pred[:, 1], target).cpu().item())
+            dice_lst.append(dice(torch.argmax(pred, dim=1), target).cpu().item())
             loss_lst.append(loss.detach().cpu().item())
             bar.set_description(f"validation loss: {loss.item():.8f}")
 
