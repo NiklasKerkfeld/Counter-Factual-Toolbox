@@ -16,7 +16,8 @@ from tqdm import tqdm
 from src.Trainer.Dataset2D import Dataset2D
 from src.utils import normalize, dice
 
-EXAMPLE = 144
+EXAMPLE = 417
+
 
 class Trainer:
     def __init__(self, model: nn.Module, name: str, epochs: int, batch_size: int):
