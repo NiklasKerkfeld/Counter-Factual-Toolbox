@@ -31,7 +31,7 @@ class Trainer:
 
         self.model = model.to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        self.loss_fn = CrossEntropyLoss()
+        self.loss_fn = CrossEntropyLoss(weight=torch.tensor([.1, .9]).to(self.device))
 
         self.train_dataset = Dataset2D("data/Dataset101_fcd", mode='train')
         self.valid_dataset = Dataset2D("data/Dataset101_fcd", mode='valid')
