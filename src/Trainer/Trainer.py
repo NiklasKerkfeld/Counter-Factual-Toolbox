@@ -24,7 +24,7 @@ class Trainer:
         self.epochs = epochs
         self.name = name
         self.batch_size = batch_size
-        self.loss = float('inf')
+        self.best_loss = float('inf')
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
@@ -68,7 +68,9 @@ class Trainer:
                 self.save(self.name)
 
             print(
-                f"finished training epoch {e + 1} with an average train loss of {train_loss} and a validation loss of {valid_loss}")
+                f"finished training epoch {e + 1}!\n"
+                f"\ttrain loss: {train_loss}\n"
+                f"\tvalidation loss: {valid_loss}\n")
 
     def train_epoch(self) -> float:
         self.model.train()
