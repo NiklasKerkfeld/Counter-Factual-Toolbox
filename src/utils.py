@@ -6,6 +6,7 @@ from typing import Tuple
 import monai
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import torch
 from monai.transforms import SaveImage, Compose, LoadImaged, NormalizeIntensityd, ConcatItemsd, \
     ToTensord, CastToTypeD, DeleteItemsd, Spacingd, ResampleToMatchd, CenterSpatialCropd
@@ -99,7 +100,7 @@ def dice(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
     intersection = torch.sum(torch.logical_and(pred, target))
 
-    return (2 * intersection) / (torch.sum(pred) + torch.sum(target))
+    return (2 * intersection) / (torch.sum(pred) + torch.sum(target) + 1e-6)
 
 
 def save(image: torch.Tensor, path: str, example: monai.data.MetaTensor, post_fix: str = 'pred',
@@ -122,11 +123,26 @@ def get_vram(device: torch.device):
     used = total - free
     return used, total, free
 
+
 def get_max_slice(target: torch.Tensor, dim: int) -> Tuple[int, int]:
     sizes = torch.sum(target, dim=[i for i in range(target.dim()) if i != dim])
     return sizes.argmax().item(), sizes.max().item()
 
 
+def get_split():
+    split = {}
+    df = pd.read_csv('data/Dataset101_fcd/participants.tsv', sep='\t')
+    df = df[df['mri_diagnosis'] == 'suspicion']
+    train = list(df[df['split'] == 'train']['participant_id'])
+    split['train'] = train[14:]
+    split['valid'] = train[:14]
+    split['test'] = list(df[df['split'] == 'test']['participant_id'])
+
+    return split
+
+
 if __name__ == '__main__':
-    item = load_image('data/Dataset101_fcd/sub-00001')
-    pass
+    split = get_split()
+    print(f"{len(split['train'])} {split['train']=}")
+    print(f"{len(split['valid'])} {split['valid']=}")
+    print(f"{len(split['test'])} {split['test']=}")

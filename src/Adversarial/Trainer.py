@@ -214,7 +214,7 @@ def get_args() -> argparse.Namespace:
         "-i",
         type=int,
         default=10,
-        help="Number of epochs",
+        help="Number of iterations",
     )
 
     parser.add_argument(
@@ -222,7 +222,7 @@ def get_args() -> argparse.Namespace:
         "-e",
         type=int,
         default=3,
-        help="Number of epochs",
+        help="Number of epochs to train adversarial in every iteration",
     )
 
     parser.add_argument(
@@ -230,7 +230,7 @@ def get_args() -> argparse.Namespace:
         "-s",
         type=int,
         default=15,
-        help="Number of epochs",
+        help="Number of steps for generating image changes",
     )
 
     parser.add_argument(
