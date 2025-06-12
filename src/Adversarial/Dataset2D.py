@@ -20,10 +20,9 @@ exceptions = ['sub-00002',
 
 
 class Dataset2D(Dataset):
-    def __init__(self, path: str, slice_dim: int = 2, no_change_p: float = 0.0):
+    def __init__(self, path: str, slice_dim: int = 2):
         super().__init__()
         self.slice_dim = slice_dim + 1
-        self.no_change_p = no_change_p
 
         self.data = {}
         self.len = 0
@@ -55,14 +54,11 @@ class Dataset2D(Dataset):
     def __len__(self):
         return self.len
 
-    def __getitem__(self, index, a: bool = True):
+    def __getitem__(self, index):
         item, i = self.data[index]
         image = item['tensor'].select(self.slice_dim, i)
         target = item['target'].select(self.slice_dim, i)
         change = item['change'].select(self.slice_dim, i)
-
-        if torch.rand(1) < self.no_change_p and a:
-            change = torch.zeros_like(change)
 
         return image, target[0], change
 

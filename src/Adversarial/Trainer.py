@@ -24,8 +24,7 @@ class Trainer:
                  epochs: int = 3,
                  steps: int = 25,
                  batch_size: int = 16,
-                 alpha: float = 1.0,
-                 no_change_p: float = 0.0):
+                 alpha: float = 1.0):
         self.iterations = iterations
         self.epochs = epochs
         self.steps = steps
@@ -42,7 +41,7 @@ class Trainer:
         self.generator.to(self.device)
         self.loss_fn = torch.nn.MSELoss()
 
-        self.dataset = Dataset2D("data/Dataset101_fcd", no_change_p=no_change_p)
+        self.dataset = Dataset2D("data/Dataset101_fcd")
         self.dataloader_gen = DataLoader(self.dataset,
                                          batch_size=self.batch_size,
                                          shuffle=False)
@@ -249,14 +248,6 @@ def get_args() -> argparse.Namespace:
         help="Batch size",
     )
 
-    parser.add_argument(
-        "--no_change_p",
-        "-p",
-        type=float,
-        default=0.0,
-        help="probability for dropping change in adversarial training",
-    )
-
     return parser.parse_args()
 
 
@@ -271,7 +262,6 @@ if __name__ == '__main__':
                       steps=args.steps,
                       name=args.name,
                       batch_size=args.batchsize,
-                      alpha=args.alpha,
-                      no_change_p=args.no_change_p)
+                      alpha=args.alpha)
 
     trainer.train()
