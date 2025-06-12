@@ -1,5 +1,6 @@
 """Super class for image adaption."""
 import os
+import warnings
 from typing import Tuple, List, Literal
 
 import numpy as np
@@ -34,7 +35,7 @@ class Generator(nn.Module):
 
         self.model.eval()
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward path for generation.
 
@@ -51,7 +52,7 @@ class Generator(nn.Module):
         image, cost = self.adapt(input)
         output = self.model(image)
         loss = self.loss(output, target)
-        return loss + self.alpha * cost
+        return loss + self.alpha * cost, loss, self.alpha * cost
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -63,6 +64,7 @@ class Generator(nn.Module):
         Returns:
             the adapted image and the cost of that adaption.
         """
+        warnings.warn("Warning: You executed the dummy adapt function of the Generator super class!")
         return input, torch.tensor(0.0).to(input.device)
 
     def reset(self):
@@ -72,18 +74,15 @@ class Generator(nn.Module):
     def visualize(self, image: torch.Tensor,
                   target: torch.Tensor,
                   losses: List[float],
+                  target_losses: List[float],
+                  costs: List[float],
                   name: str = 'generate',
                   method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         """Visualizes the results."""
 
         os.makedirs(f"Results/{name}", exist_ok=True)
 
-        # plot loss curve
-        plt.plot(losses)
-        plt.xlabel('step')
-        plt.ylabel('loss')
-        plt.title('Loss over generation process')
-        plt.savefig(f"Results/{name}/loss_curve.png")
+        self.plot_generation_curves(costs, losses, name, target_losses)
 
         # calculate predictions
         with torch.no_grad():
@@ -121,6 +120,16 @@ class Generator(nn.Module):
         plt.close()
         print(f"Overview of the results saved to Results/{name}/overview.png")
 
+    def plot_generation_curves(self, costs, losses, name, target_losses):
+        # plot loss curve
+        plt.plot(losses, label='complete loss')
+        plt.plot(target_losses, label='target loss')
+        plt.plot(costs, label='cost')
+        plt.xlabel('step')
+        plt.ylabel('loss')
+        plt.legend()
+        plt.title('Loss over generation process')
+        plt.savefig(f"Results/{name}/loss_curve.png", dpi=750)
 
     def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)

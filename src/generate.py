@@ -31,12 +31,18 @@ def main(path: str, generator: Generator, optimizer: Adam, steps: int = 100, sli
     print("starting process...")
     bar = trange(steps, desc='generating...')
     losses = []
+    target_losses = []
+    costs = []
     for _ in bar:
         optimizer.zero_grad()
-        loss = generator(image, target)
+        loss, target_loss, cost = generator(image, target)
         loss.backward()
         optimizer.step()
+
         losses.append(loss.detach().cpu().item())
+        target_losses.append(target_loss.detach().cpu().item())
+        costs.append(cost.detach().cpu().item())
+
         bar.set_description(f"loss: {losses[-1]}")
 
     loss_fn = CrossEntropyLoss()
@@ -51,23 +57,32 @@ def main(path: str, generator: Generator, optimizer: Adam, steps: int = 100, sli
         deformed_dice = dice(torch.argmax(deformed_prediction, dim=1), target)
 
     print(
-        f"Reduced loss from {original_loss} to {deformed_loss} with an adaption that has a cost of: {cost}.")
+        f"Reduced loss from {original_loss} to {deformed_loss} with an adaption that has a cost of: {cost} {generator.alpha}.")
     print(
         f"The Dice score increased from {original_dice} to {deformed_dice}.")
 
-    generator.visualize(image, target, losses, f"{len(glob.glob(f'Results/*'))}_{name}", 'GradCAMPlusPlus')
+    generator.visualize(image,
+                        target,
+                        losses,
+                        target_losses,
+                        costs,
+                        f"{len(glob.glob(f'Results/*'))}_{name}", 'GradCAM')
 
 
 if __name__ == '__main__':
     from src.Architecture.ChangeGenerator import ChangeGenerator
     from src.Architecture.DeformationGenerator import ElasticDeformation2D
     from src.Architecture.AffineGenerator import AffineGenerator
+    from src.Architecture.AdversarialGenerator import AdversarialGenerator
 
     model = get_network(configuration='2d', fold=0)
     loss = MaskedCrossentropy()
     # generator = ElasticDeformation2D(model, (1, 2, 160, 256), (20, 32), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
-    generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
-    optimizer = torch.optim.Adam([generator.change], lr=1e-1)
+    # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
+    # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
+    generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=10_000.0)
+    generator.load_adversarial()
+    optimizer = torch.optim.Adam([generator.change], lr=1e-3)
 
     main('data/Dataset101_fcd/sub-00003', generator, optimizer)
