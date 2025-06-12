@@ -30,8 +30,8 @@ class Trainer:
         print(f"Using device: {self.device}")
 
         self.model = model.to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        self.loss_fn = CrossEntropyLoss(weight=torch.tensor([.1, 10.]).to(self.device))
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
+        self.loss_fn = CrossEntropyLoss(weight=torch.tensor([.1, 100.]).to(self.device))
 
         self.train_dataset = Dataset2D("data/Dataset101_fcd", mode='train')
         self.valid_dataset = Dataset2D("data/Dataset101_fcd", mode='valid')
@@ -50,12 +50,10 @@ class Trainer:
         self.epoch = 0
 
         image, target = self.valid_dataset[EXAMPLE]
-        pred = F.softmax(self.model(image[None].to(self.device)), dim=1)
         self.log_image("original",
                        t1w=normalize(image[0]),
                        flair=normalize(image[1]),
-                       target=target,
-                       prediction=pred[0, 1])
+                       target=target)
 
     def train(self):
         for e in range(self.epochs):

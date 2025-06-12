@@ -100,7 +100,7 @@ def dice(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
     intersection = torch.sum(torch.logical_and(pred, target))
 
-    return (2 * intersection) / (torch.sum(pred) + torch.sum(target))
+    return (2 * intersection) / (torch.sum(pred) + torch.sum(target) + 1e-6)
 
 
 def save(image: torch.Tensor, path: str, example: monai.data.MetaTensor, post_fix: str = 'pred',
