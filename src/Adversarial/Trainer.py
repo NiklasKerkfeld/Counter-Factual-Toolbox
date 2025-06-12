@@ -56,7 +56,7 @@ class Trainer:
         self.writer = SummaryWriter(train_log_dir)  # type: ignore
         self.epoch = 0
 
-        image, target, _ = self.dataset[EXAMPLE]
+        image, target, _ = self.dataset[EXAMPLE, False]
         pred = F.softmax(self.generator.model(image[None].to(self.device)), dim=1)
         self.log_image("original",
                        t1w=normalize(image[0]),
@@ -118,7 +118,7 @@ class Trainer:
 
         # logging
         print(f"finished generating with an average loss of {np.mean(loss_lst)}")
-        image, _, change = self.dataset[EXAMPLE]
+        image, _, change = self.dataset[EXAMPLE, False]
         tensor = image + change
         pred = F.softmax(self.generator.model(tensor[None].to(self.device)), dim=1)
         self.log_loss("generating", loss=np.mean(loss_lst))

@@ -55,13 +55,13 @@ class Dataset2D(Dataset):
     def __len__(self):
         return self.len
 
-    def __getitem__(self, index):
+    def __getitem__(self, index, a: bool = True):
         item, i = self.data[index]
         image = item['tensor'].select(self.slice_dim, i)
         target = item['target'].select(self.slice_dim, i)
         change = item['change'].select(self.slice_dim, i)
 
-        if torch.rand(1) < self.no_change_p:
+        if torch.rand(1) < self.no_change_p and a:
             change = torch.zeros_like(change)
 
         return image, target[0], change
