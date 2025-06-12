@@ -1,15 +1,18 @@
 """Super class for image adaption."""
 import os
-from typing import Tuple, List
+from typing import Tuple, List, Literal
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
-from matplotlib.colors import TwoSlopeNorm
-from monai.visualize import GradCAM
+from pytorch_grad_cam import GradCAM, GradCAMPlusPlus
+from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.model_targets import SemanticSegmentationTarget
 from torch import nn
 from torch.nn import CrossEntropyLoss
+
+from src.utils import normalize
 
 
 class Generator(nn.Module):
@@ -66,7 +69,11 @@ class Generator(nn.Module):
         """Resets all parameters so a new image can be generated."""
         pass
 
-    def visualize(self, image: torch.Tensor, target: torch.Tensor, losses: List[float], name: str = 'generate'):
+    def visualize(self, image: torch.Tensor,
+                  target: torch.Tensor,
+                  losses: List[float],
+                  name: str = 'generate',
+                  method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         """Visualizes the results."""
 
         os.makedirs(f"Results/{name}", exist_ok=True)
@@ -89,8 +96,8 @@ class Generator(nn.Module):
 
         # plot Grad Cam maps
         plt.figure(figsize=(10, 10))
-        self.get_class_activation_map(image, 1)
-        self.get_class_activation_map(new_image,2)
+        self.plot_activation_map(image, 1, method)
+        self.plot_activation_map(new_image, 2, method)
 
         plt.tight_layout()
         plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
@@ -173,16 +180,17 @@ class Generator(nn.Module):
             axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
 
-    def get_class_activation_map(self, image, i):
-        cam = GradCAM(nn_module=self.model, target_layers="decoder.seg_layers.4")
-        activation_map = cam(x=image, class_idx=0).detach().cpu() ** 2
+    def plot_activation_map(self, image, i, method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
+        b, c, w, h = image.shape
+        method = {'GradCAM': GradCAM, 'GradCAMPlusPlus': GradCAMPlusPlus}[method]
+
+        with method(model=self.model, target_layers=[self.model.decoder.seg_layers[-1]]) as cam:
+            activation_map = cam(input_tensor=image, targets=[SemanticSegmentationTarget(1, np.ones((w, h)))])[0, :]
+            image = normalize(image[:, 0]).repeat(3, 1, 1).permute(1, 2, 0)
+            cam_image = show_cam_on_image(image.numpy(), activation_map, use_rgb=True)
 
         plt.subplot(1, 2, i)
         plt.title("Modified input image" if i == 2 else "Original image")
-        plt.imshow(image[0, 0].detach().cpu(), cmap='gray')
-        plt.imshow(np.concatenate(
-            (activation_map[0], np.zeros_like(activation_map[0]),
-             np.zeros_like(activation_map[0]), activation_map[0] > .1),
-            axis=0).astype(float).transpose(1, 2, 0), alpha=0.5, norm=TwoSlopeNorm(0.0))
+        plt.imshow(cam_image, cmap='gray')
         plt.axis('off')
 

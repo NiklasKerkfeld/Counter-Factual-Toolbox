@@ -55,7 +55,7 @@ def main(path: str, generator: Generator, optimizer: Adam, steps: int = 100, sli
     print(
         f"The Dice score increased from {original_dice} to {deformed_dice}.")
 
-    generator.visualize(image, target, losses, f"{len(glob.glob(f'Results/*'))}_{name}")
+    generator.visualize(image, target, losses, f"{len(glob.glob(f'Results/*'))}_{name}", 'GradCAMPlusPlus')
 
 
 if __name__ == '__main__':
@@ -65,9 +65,9 @@ if __name__ == '__main__':
 
     model = get_network(configuration='2d', fold=0)
     loss = MaskedCrossentropy()
-    generator = ElasticDeformation2D(model, (1, 2, 160, 256), (20, 32), loss=loss, alpha=.001)
-    optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
-    # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
-    # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
+    # generator = ElasticDeformation2D(model, (1, 2, 160, 256), (20, 32), loss=loss, alpha=.001)
+    # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
+    generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
+    optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
     main('data/Dataset101_fcd/sub-00003', generator, optimizer)
