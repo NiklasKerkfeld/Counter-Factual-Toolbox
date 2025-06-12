@@ -1,7 +1,7 @@
 import glob
 import os
 from copy import deepcopy
-from typing import Tuple
+from typing import Tuple, Optional
 
 import monai
 import numpy as np
@@ -64,7 +64,6 @@ def visualize_deformation_field(image, dx, dy, scale=1, color='red'):
     plt.figure(figsize=(20, 20))
     plt.imshow(image, cmap='gray')
 
-
     plt.quiver(X, Y, dx, dy, color=color, angles='xy', scale_units='xy', scale=1 / scale)
 
     plt.title(f'Elastic Deformation Field (scale x{scale})')
@@ -75,9 +74,12 @@ def visualize_deformation_field(image, dx, dy, scale=1, color='red'):
     print(f"Visualization of the deformation saved to logs/deformation.png")
 
 
-def normalize(image: torch.Tensor) -> torch.Tensor:
-    image -= image.min()
-    image /= image.max()
+def normalize(image: torch.Tensor, shift: Optional[float] = None, scale: Optional[float] = None) -> torch.Tensor:
+    shift = image.min() if shift is None else shift
+    image -= shift
+
+    scale = image.max() if scale is None else scale
+    image /= scale
     return image
 
 

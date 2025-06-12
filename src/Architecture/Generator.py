@@ -13,7 +13,7 @@ from pytorch_grad_cam.utils.model_targets import SemanticSegmentationTarget
 from torch import nn
 from torch.nn import CrossEntropyLoss
 
-from src.utils import normalize
+from src.utils import normalize, dice
 
 
 class Generator(nn.Module):
@@ -71,27 +71,40 @@ class Generator(nn.Module):
         """Resets all parameters so a new image can be generated."""
         pass
 
-    def visualize(self, image: torch.Tensor,
-                  target: torch.Tensor,
-                  losses: List[float],
-                  target_losses: List[float],
-                  costs: List[float],
-                  name: str = 'generate',
-                  method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
+    def log_and_visualize(self,
+                          image: torch.Tensor,
+                          target: torch.Tensor,
+                          losses: List[float],
+                          target_losses: List[float],
+                          costs: List[float],
+                          name: str = 'generate',
+                          method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         """Visualizes the results."""
-
         os.makedirs(f"Results/{name}", exist_ok=True)
 
-        self.plot_generation_curves(costs, losses, name, target_losses)
-
-        # calculate predictions
+        loss_fn = CrossEntropyLoss()
         with torch.no_grad():
-            new_image, _ = self.adapt(image)
+            new_image, cost = self.adapt(image)
             original_prediction = self.model(image)
             deformed_prediction = self.model(new_image)
 
+            original_loss = loss_fn(original_prediction, target)
+            deformed_loss = loss_fn(deformed_prediction, target)
+            original_dice = dice(torch.argmax(original_prediction, dim=1), target)
+            deformed_dice = dice(torch.argmax(deformed_prediction, dim=1), target)
+
             original_prediction = F.softmax(original_prediction, dim=1)[0, 1].cpu()
             deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
+
+        result = (f"Loss {original_loss} --> {deformed_loss}\n"
+                  f"Adaption cost: {cost}\n"
+                  f"Dice: {original_dice} --> {deformed_dice}")
+
+        print(result)
+        with open(f"Results/{name}/results.txt", "x") as f:
+            f.write(result)
+
+        self.plot_generation_curves(costs, losses, name, target_losses)
 
         # plot Grad Cam maps
         plt.figure(figsize=(10, 10))
@@ -101,19 +114,14 @@ class Generator(nn.Module):
         plt.tight_layout()
         plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
         plt.close()
-
         print(f"Grad-Cam image of the results saved to Results/{name}/GradCam.png")
 
         # plot overview
-        image = image[0].cpu()
-        new_image = new_image[0].cpu()
-        target = target.cpu()
-
         plt.figure(figsize=(12, 10))
-        self.plot_visualization(image, new_image)
-        self.plot_original(image)
-        self.plot_modified(new_image)
-        self.plot_results(image, target, new_image, original_prediction, deformed_prediction)
+        self.plot_visualization(image[0].cpu(), new_image[0].cpu())
+        self.plot_original(image[0].cpu())
+        self.plot_modified(new_image[0].cpu())
+        self.plot_results(image[0].cpu(), target.cpu(), new_image[0].cpu(), original_prediction, deformed_prediction)
 
         plt.tight_layout()
         plt.savefig(f"Results/{name}/overview.png", dpi=750)
@@ -130,6 +138,7 @@ class Generator(nn.Module):
         plt.legend()
         plt.title('Loss over generation process')
         plt.savefig(f"Results/{name}/loss_curve.png", dpi=750)
+        print(f"Plot with loss and cost curves of the results saved to Results/{name}/loss_curve.png")
 
     def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
@@ -189,17 +198,19 @@ class Generator(nn.Module):
             axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
 
+
     def plot_activation_map(self, image, i, method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
+        image = image.clone()
         b, c, w, h = image.shape
         method = {'GradCAM': GradCAM, 'GradCAMPlusPlus': GradCAMPlusPlus}[method]
 
         with method(model=self.model, target_layers=[self.model.decoder.seg_layers[-1]]) as cam:
             activation_map = cam(input_tensor=image, targets=[SemanticSegmentationTarget(1, np.ones((w, h)))])[0, :]
-            image = normalize(image[:, 0]).repeat(3, 1, 1).permute(1, 2, 0)
-            cam_image = show_cam_on_image(image.numpy(), activation_map, use_rgb=True)
+            cam_image = show_cam_on_image(normalize(image[:, 0]).repeat(3, 1, 1).permute(1, 2, 0).numpy(),
+                                          activation_map,
+                                          use_rgb=True)
 
         plt.subplot(1, 2, i)
         plt.title("Modified input image" if i == 2 else "Original image")
         plt.imshow(cam_image, cmap='gray')
         plt.axis('off')
-

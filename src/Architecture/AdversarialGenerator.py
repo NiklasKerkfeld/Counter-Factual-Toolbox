@@ -28,6 +28,7 @@ class AdversarialGenerator(Generator):
                       features=(64, 128, 256, 512, 1024, 128)),
             nn.ReLU()
         )
+        self.adversarial.eval()
 
         self.change = nn.Parameter(torch.zeros(*self.image_shape))
 
@@ -51,18 +52,18 @@ class AdversarialGenerator(Generator):
         self.adversarial.load_state_dict(
             torch.load(f"models/{name}.pth", map_location=self.change.device))
 
-    def visualize(self, image: torch.Tensor,
-                  target: torch.Tensor,
-                  losses: List[float],
-                  target_losses: List[float],
-                  costs: List[float],
-                  name: str = 'generate',
-                  method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
-        super().visualize(image, target, losses, target_losses, costs, name, method)
+    def log_and_visualize(self, image: torch.Tensor,
+                          target: torch.Tensor,
+                          losses: List[float],
+                          target_losses: List[float],
+                          costs: List[float],
+                          name: str = 'generate',
+                          method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
+        super().log_and_visualize(image, target, losses, target_losses, costs, name, method)
 
         with torch.no_grad():
             input_image, cost = self.adapt(image)
-            print(f"{cost=}, {self.alpha}")
+            print(f"{cost=}, {self.alpha}, {image.shape=}")
             predicted = self.adversarial(input_image).detach().numpy()
             predicted *= torch.sign(self.change).detach().numpy()
 

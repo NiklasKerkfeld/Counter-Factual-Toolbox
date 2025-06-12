@@ -45,27 +45,11 @@ def main(path: str, generator: Generator, optimizer: Adam, steps: int = 100, sli
 
         bar.set_description(f"loss: {losses[-1]}")
 
-    loss_fn = CrossEntropyLoss()
-    with torch.no_grad():
-        new_image, cost = generator.adapt(image)
-        original_prediction = generator.model(image)
-        deformed_prediction = generator.model(new_image)
-
-        original_loss = loss_fn(original_prediction, target)
-        deformed_loss = loss_fn(deformed_prediction, target)
-        original_dice = dice(torch.argmax(original_prediction, dim=1), target)
-        deformed_dice = dice(torch.argmax(deformed_prediction, dim=1), target)
-
-    print(
-        f"Reduced loss from {original_loss} to {deformed_loss} with an adaption that has a cost of: {cost} {generator.alpha}.")
-    print(
-        f"The Dice score increased from {original_dice} to {deformed_dice}.")
-
-    generator.visualize(image,
-                        target,
-                        losses,
-                        target_losses,
-                        costs,
+    generator.log_and_visualize(image,
+                                target,
+                                losses,
+                                target_losses,
+                                costs,
                         f"{len(glob.glob(f'Results/*'))}_{name}", 'GradCAM')
 
 
@@ -81,7 +65,7 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
     # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
     # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
-    generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=10_000.0)
+    generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
     generator.load_adversarial()
     optimizer = torch.optim.Adam([generator.change], lr=1e-3)
 
