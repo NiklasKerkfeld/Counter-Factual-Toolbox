@@ -104,7 +104,7 @@ class Trainer:
 
             for _ in range(self.steps):
                 optimizer.zero_grad()
-                loss, _, _ = self.generator(image, target)
+                loss = self.generator(image, target)
                 loss.backward()
                 optimizer.step()
 

@@ -1,13 +1,10 @@
 """Classes for free pixel value change."""
-import os
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, Literal
 
-import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
 from torch import nn
-import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
 from src.Architecture.Generator import Generator
@@ -34,6 +31,19 @@ class ChangeGenerator(Generator):
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         return input + self.change, torch.mean(torch.abs(self.change))
+
+    def log_and_visualize(self,
+                          image: torch.Tensor,
+                          target: torch.Tensor,
+                          name: str = 'generate',
+                          method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
+        super().log_and_visualize(image, target, name, method)
+
+        self.save_images(name,
+                         bias_map_t1w=self.change[0, 0].detach().cpu(),
+                         bias_map_flair=self.change[0, 1].detach().cpu(),
+                         cmap='bwr',
+                         norm=TwoSlopeNorm(0.0))
 
     def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)

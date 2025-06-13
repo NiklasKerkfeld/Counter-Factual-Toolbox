@@ -30,27 +30,19 @@ def main(path: str, generator: Generator, optimizer: Adam, steps: int = 100, sli
 
     print("starting process...")
     bar = trange(steps, desc='generating...')
-    losses = []
-    target_losses = []
-    costs = []
+
     for _ in bar:
         optimizer.zero_grad()
-        loss, target_loss, cost = generator(image, target)
+        loss = generator(image, target)
         loss.backward()
         optimizer.step()
 
-        losses.append(loss.detach().cpu().item())
-        target_losses.append(target_loss.detach().cpu().item())
-        costs.append(cost.detach().cpu().item())
+        bar.set_description(f"loss: {loss.detach().cpu().item()}")
 
-        bar.set_description(f"loss: {losses[-1]}")
-
+    print("\nstarting logging...\n")
     generator.log_and_visualize(image,
                                 target,
-                                losses,
-                                target_losses,
-                                costs,
-                        f"{len(glob.glob(f'Results/*'))}_{name}", 'GradCAM')
+                                f"{len(glob.glob(f'Results/*'))}_{name}", 'GradCAM')
 
 
 if __name__ == '__main__':

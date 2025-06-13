@@ -1,12 +1,14 @@
 """Super class for image adaption."""
+import csv
 import os
 import warnings
-from typing import Tuple, List, Literal
+from typing import Tuple, List, Literal, Optional
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
+from matplotlib.colors import Normalize
 from pytorch_grad_cam import GradCAM, GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import SemanticSegmentationTarget
@@ -35,6 +37,10 @@ class Generator(nn.Module):
 
         self.model.eval()
 
+        # for logging
+        self.losses: List[float] = []
+        self.costs: List[float] = []
+
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward path for generation.
@@ -52,7 +58,11 @@ class Generator(nn.Module):
         image, cost = self.adapt(input)
         output = self.model(image)
         loss = self.loss(output, target)
-        return loss + self.alpha * cost, loss, self.alpha * cost
+
+        self.losses.append(loss.detach().cpu())
+        self.costs.append(cost.detach().cpu())
+
+        return loss + self.alpha * cost
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -69,19 +79,57 @@ class Generator(nn.Module):
 
     def reset(self):
         """Resets all parameters so a new image can be generated."""
-        pass
+        self.losses = []
+        self.costs = []
 
     def log_and_visualize(self,
                           image: torch.Tensor,
                           target: torch.Tensor,
-                          losses: List[float],
-                          target_losses: List[float],
-                          costs: List[float],
                           name: str = 'generate',
                           method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         """Visualizes the results."""
         os.makedirs(f"Results/{name}", exist_ok=True)
 
+        deformed_prediction, new_image, original_prediction = self.generate_results(image, name, target)
+
+        self.plot_generation_curves(name)
+
+        self.save_images(name,
+                         original_t1w=image[0, 0].cpu(),
+                         original_flair=image[0, 1].cpu(),
+                         original_target=target[0].cpu(),
+                         adapted_t1w=new_image[0, 0].cpu(),
+                         adapted_flair=new_image[0, 1].cpu(),
+                         original_prediction=original_prediction.cpu(),
+                         adapted_prediction=deformed_prediction.cpu())
+
+        # plot Grad Cam maps
+        self.generate_gradcam(image, method, name, new_image)
+
+        # plot overview
+        self.generate_overview(deformed_prediction, image, name, new_image, original_prediction, target)
+
+    def generate_overview(self, deformed_prediction, image, name, new_image, original_prediction, target):
+        plt.figure(figsize=(12, 10))
+        self.plot_visualization(image[0].cpu(), new_image[0].cpu())
+        self.plot_original(image[0].cpu())
+        self.plot_modified(new_image[0].cpu())
+        self.plot_results(image[0].cpu(), target.cpu(), new_image[0].cpu(), original_prediction, deformed_prediction)
+        plt.tight_layout()
+        plt.savefig(f"Results/{name}/overview.png", dpi=750)
+        plt.close()
+        print(f"Overview of the results saved to Results/{name}/overview.png")
+
+    def generate_gradcam(self, image, method, name, new_image):
+        plt.figure(figsize=(10, 10))
+        self.plot_activation_map(image, 1, method)
+        self.plot_activation_map(new_image, 2, method)
+        plt.tight_layout()
+        plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
+        plt.close()
+        print(f"Grad-Cam image of the results saved to Results/{name}/GradCam.png")
+
+    def generate_results(self, image, name, target):
         loss_fn = CrossEntropyLoss()
         with torch.no_grad():
             new_image, cost = self.adapt(image)
@@ -95,50 +143,50 @@ class Generator(nn.Module):
 
             original_prediction = F.softmax(original_prediction, dim=1)[0, 1].cpu()
             deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
-
         result = (f"Loss {original_loss} --> {deformed_loss}\n"
                   f"Adaption cost: {cost}\n"
                   f"Dice: {original_dice} --> {deformed_dice}")
-
         print(result)
         with open(f"Results/{name}/results.txt", "x") as f:
             f.write(result)
+        return deformed_prediction, new_image, original_prediction
 
-        self.plot_generation_curves(costs, losses, name, target_losses)
+    def save_images(self, name: str, cmap: str = 'gray', norm: Optional[Normalize] = None, **kwargs: torch.Tensor):
+        for key, image in kwargs.items():
+            for i in range(2):
+                plt.figure()  # Ensure a new figure is created for each image
+                im = plt.imshow(image, cmap=cmap, norm=norm)
+                plt.axis('off')
+                if i == 1:
+                    plt.colorbar(im, fraction=0.046, pad=0.04)  # Add colorbar
+                plt.tight_layout()
+                plt.savefig(f"Results/{name}/{key}{'_colorbar' if i == 1 else ''}.png", bbox_inches='tight', pad_inches=0)
+                plt.close()  # Close the figure to free memory
+                print(f"{key} saved to Results/{name}/{key}{'_colorbar' if i == 1 else ''}.png")
 
-        # plot Grad Cam maps
-        plt.figure(figsize=(10, 10))
-        self.plot_activation_map(image, 1, method)
-        self.plot_activation_map(new_image, 2, method)
+    def plot_generation_curves(self, name: str):
+        losses = np.array(self.losses)
+        costs = np.array(self.costs)
 
-        plt.tight_layout()
-        plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
-        plt.close()
-        print(f"Grad-Cam image of the results saved to Results/{name}/GradCam.png")
-
-        # plot overview
-        plt.figure(figsize=(12, 10))
-        self.plot_visualization(image[0].cpu(), new_image[0].cpu())
-        self.plot_original(image[0].cpu())
-        self.plot_modified(new_image[0].cpu())
-        self.plot_results(image[0].cpu(), target.cpu(), new_image[0].cpu(), original_prediction, deformed_prediction)
-
-        plt.tight_layout()
-        plt.savefig(f"Results/{name}/overview.png", dpi=750)
-        plt.close()
-        print(f"Overview of the results saved to Results/{name}/overview.png")
-
-    def plot_generation_curves(self, costs, losses, name, target_losses):
         # plot loss curve
-        plt.plot(losses, label='complete loss')
-        plt.plot(target_losses, label='target loss')
+        plt.plot(losses + costs, label='complete loss')
+        plt.plot(losses, label='target loss')
         plt.plot(costs, label='cost')
+        if self.alpha != 1.0:
+            plt.plot(self.alpha * costs, label='alpha * cost')
         plt.xlabel('step')
         plt.ylabel('loss')
         plt.legend()
         plt.title('Loss over generation process')
         plt.savefig(f"Results/{name}/loss_curve.png", dpi=750)
+        plt.close()  # Close the figure to free memory
+
         print(f"Plot with loss and cost curves of the results saved to Results/{name}/loss_curve.png")
+
+        with open(f"Results/{name}/loss_curves.csv", mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['step', 'loss', 'cost'])  # Header
+            writer.writerows([(i, x, y) for i, x, y in zip(np.arange(1, len(losses)+1), losses, costs)])
 
     def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
@@ -197,7 +245,6 @@ class Generator(nn.Module):
              np.zeros_like(deformed_prediction[None]), deformed_prediction[None] > .1),
             axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
-
 
     def plot_activation_map(self, image, i, method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         image = image.clone()
