@@ -77,27 +77,27 @@ class AdversarialGenerator(Generator):
                          bias_map_t1w=self.change[0, 0].detach().cpu(),
                          bias_map_flair=self.change[0, 1].detach().cpu(),
                          cmap='bwr',
-                         norm=TwoSlopeNorm(0.0, vmin=-.1, vmax=.1))
+                         norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
 
         plt.figure(figsize=(10, 10))
         plt.subplot(2, 2, 1)
         plt.title("predicted Change - tw1")
-        plt.imshow(predicted[0, 0], cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.1, vmax=.1))
+        plt.imshow(predicted[0, 0], cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
         plt.axis('off')
 
         plt.subplot(2, 2, 2)
         plt.title("predicted Change - flair")
-        plt.imshow(predicted[0, 1], cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.1, vmax=.1))
+        plt.imshow(predicted[0, 1], cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
         plt.axis('off')
 
         plt.subplot(2, 2, 3)
         plt.title("Change - t1w")
-        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.1, vmax=.1))
+        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
         plt.axis('off')
 
         plt.subplot(2, 2, 4)
         plt.title("Change - FLAIR")
-        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.1, vmax=.1))
+        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
         plt.axis('off')
 
         plt.tight_layout()
@@ -108,12 +108,12 @@ class AdversarialGenerator(Generator):
     def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
         plt.title("Change - t1w")
-        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.1, vmax=.1))
+        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
         plt.axis('off')
 
         plt.subplot(3, 3, 4)
         plt.title("Change - FLAIR")
-        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.1, vmax=.1))
+        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
         plt.axis('off')
 
     def plot_generation_curves(self, name: str):

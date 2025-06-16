@@ -59,8 +59,8 @@ if __name__ == '__main__':
     # generator = ScaleAndShiftGenerator(model, (1, 2, 160, 256), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.scale, generator.shift], lr=1e-1)
 
-    generator = AffineGenerator(model, loss=loss, alpha=.001)
-    optimizer = torch.optim.Adam([generator.change], lr=1e-1)
+    # generator = AffineGenerator(model, loss=loss, alpha=.001)
+    # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
     # generator = ElasticDeformation2D(model, (1, 2, 160, 256), (20, 32), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
@@ -68,9 +68,9 @@ if __name__ == '__main__':
     # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
     # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
-    # generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
-    # generator.load_adversarial()
-    # optimizer = torch.optim.Adam([generator.change], lr=1e-3)
+    generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
+    generator.load_adversarial()
+    optimizer = torch.optim.Adam([generator.change], lr=1e-3)
 
-    # interesting: sub-00003, sub-00043
-    main('data/Dataset101_fcd/sub-00003', generator, optimizer)
+    # interesting: sub-00003, sub-00043, sub-00048, sub-00116
+    main('data/Dataset101_fcd/sub-00048', generator, optimizer)
