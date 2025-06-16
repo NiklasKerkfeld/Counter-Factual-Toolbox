@@ -68,8 +68,8 @@ class AdversarialGenerator(Generator):
 
         with torch.no_grad():
             input_image, cost = self.adapt(image)
-            predicted = self.adversarial(input_image).detach().numpy()
-            predicted *= torch.sign(self.change).detach().numpy()
+            predicted = self.adversarial(input_image).detach().cpu().numpy()
+            predicted *= torch.sign(self.change).detach().cpu().numpy()
 
         self.save_images(name,
                          predicted_change_t1w=predicted[0, 0],

@@ -46,19 +46,31 @@ def main(path: str, generator: Generator, optimizer: Adam, steps: int = 100, sli
 
 
 if __name__ == '__main__':
-    from src.Architecture.ChangeGenerator import ChangeGenerator
-    from src.Architecture.DeformationGenerator import ElasticDeformation2D
-    from src.Architecture.AffineGenerator import AffineGenerator
-    from src.Architecture.AdversarialGenerator import AdversarialGenerator
+    from src.Architecture import (ChangeGenerator,
+                                  ElasticDeformation2D,
+                                  AffineGenerator,
+                                  AdversarialGenerator,
+                                  ScaleAndShiftGenerator,
+                                  AffineGenerator)
 
     model = get_network(configuration='2d', fold=0)
     loss = MaskedCrossentropy()
+
+    # generator = ScaleAndShiftGenerator(model, (1, 2, 160, 256), loss=loss, alpha=.001)
+    # optimizer = torch.optim.Adam([generator.scale, generator.shift], lr=1e-1)
+
+    generator = AffineGenerator(model, loss=loss, alpha=.001)
+    optimizer = torch.optim.Adam([generator.change], lr=1e-1)
+
     # generator = ElasticDeformation2D(model, (1, 2, 160, 256), (20, 32), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
+
     # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
     # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
-    generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
-    generator.load_adversarial()
-    optimizer = torch.optim.Adam([generator.change], lr=1e-3)
 
+    # generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
+    # generator.load_adversarial()
+    # optimizer = torch.optim.Adam([generator.change], lr=1e-3)
+
+    # interesting: sub-00003, sub-00043
     main('data/Dataset101_fcd/sub-00003', generator, optimizer)

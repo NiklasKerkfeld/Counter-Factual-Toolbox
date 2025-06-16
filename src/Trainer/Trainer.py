@@ -129,7 +129,7 @@ class Trainer:
         os.makedirs("models/", exist_ok=True)
         torch.save(
             self.model.state_dict(),
-            f"models/{name}",
+            f"models/{name}.pth",
         )
 
     def log_loss(self, task: str, **kwargs: Dict[str, float]) -> None:

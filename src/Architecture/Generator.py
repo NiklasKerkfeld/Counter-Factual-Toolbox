@@ -7,6 +7,7 @@ from typing import Tuple, List, Literal, Optional
 import numpy as np
 import torch
 import torch.nn.functional as F
+from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 from pytorch_grad_cam import GradCAM, GradCAMPlusPlus
@@ -108,6 +109,9 @@ class Generator(nn.Module):
 
         # plot overview
         self.generate_overview(deformed_prediction, image, name, new_image, original_prediction, target)
+        self.create_gif_of_adaption(image[0, 0].cpu(), new_image[0, 0].cpu(), name, 't1w')
+        self.create_gif_of_adaption(image[0, 1].cpu(), new_image[0, 1].cpu(), name, 'flair')
+
 
     def generate_overview(self, deformed_prediction, image, name, new_image, original_prediction, target):
         plt.figure(figsize=(12, 10))
@@ -253,7 +257,7 @@ class Generator(nn.Module):
 
         with method(model=self.model, target_layers=[self.model.decoder.seg_layers[-1]]) as cam:
             activation_map = cam(input_tensor=image, targets=[SemanticSegmentationTarget(1, np.ones((w, h)))])[0, :]
-            cam_image = show_cam_on_image(normalize(image[:, 0]).repeat(3, 1, 1).permute(1, 2, 0).numpy(),
+            cam_image = show_cam_on_image(normalize(image[:, 0]).repeat(3, 1, 1).permute(1, 2, 0).cpu().numpy(),
                                           activation_map,
                                           use_rgb=True)
 
@@ -261,3 +265,27 @@ class Generator(nn.Module):
         plt.title("Modified input image" if i == 2 else "Original image")
         plt.imshow(cam_image, cmap='gray')
         plt.axis('off')
+
+    def create_gif_of_adaption(self, original_image: torch.Tensor, adapted_image: torch.Tensor, name: str, sequence: str):
+        """
+        Creates an animated GIF from two numpy array images.
+
+        Parameters:
+        - original_image: original image as a NumPy array.
+        - adapted_image: adapted image as a NumPy array.
+        - name: Name of the generation run.
+        - sequence: Name of the sequence.
+        """
+        original_image = Image.fromarray(np.uint8(normalize(original_image).numpy()  * 255))
+        adapted_image = Image.fromarray(np.uint8(normalize(adapted_image).numpy() * 255))
+
+        # Save as GIF
+        original_image.save(
+            f"Results/{name}/modification_{sequence}.gif",
+            save_all=True,
+            append_images=[adapted_image],
+            duration=500,
+            loop=0  # loop forever
+        )
+        print(f"Gif of {sequence} adaption saved to Results/{name}/modification_{sequence}.gif")
+
