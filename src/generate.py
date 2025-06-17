@@ -73,4 +73,4 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam([generator.change], lr=1e-3)
 
     # interesting: sub-00003, sub-00043, sub-00048, sub-00116
-    main('data/Dataset101_fcd/sub-00048', generator, optimizer)
+    main('data/Dataset101_fcd/sub-00003', generator, optimizer)

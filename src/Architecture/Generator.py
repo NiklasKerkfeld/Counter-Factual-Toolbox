@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 from matplotlib import pyplot as plt
-from matplotlib.colors import Normalize
+from matplotlib.colors import Normalize, TwoSlopeNorm
 from pytorch_grad_cam import GradCAM, GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import SemanticSegmentationTarget
@@ -22,7 +22,10 @@ from src.utils import normalize, dice
 class Generator(nn.Module):
     """Super class for image adaption."""
 
-    def __init__(self, model: nn.Module, loss=CrossEntropyLoss(), alpha: float = 1.0):
+    def __init__(self, model: nn.Module,
+                 loss=CrossEntropyLoss(),
+                 alpha: float = 1.0,
+                 name: str = 'Generator'):
         """
         Super class for image adaption.
 
@@ -41,6 +44,9 @@ class Generator(nn.Module):
         # for logging
         self.losses: List[float] = []
         self.costs: List[float] = []
+
+        self.t1w_norm = Normalize()
+        self.flair_norm = Normalize()
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -91,49 +97,35 @@ class Generator(nn.Module):
         """Visualizes the results."""
         os.makedirs(f"Results/{name}", exist_ok=True)
 
-        deformed_prediction, new_image, original_prediction = self.generate_results(image, name, target)
+        new_image, original_prediction, deformed_prediction = self.generate_results(image, name, target)
 
-        self.plot_generation_curves(name)
-
-        self.save_images(name,
-                         original_t1w=image[0, 0].cpu(),
-                         original_flair=image[0, 1].cpu(),
-                         original_target=target[0].cpu(),
-                         adapted_t1w=new_image[0, 0].cpu(),
-                         adapted_flair=new_image[0, 1].cpu(),
-                         original_prediction=original_prediction.cpu(),
-                         adapted_prediction=deformed_prediction.cpu())
+        # get norms to ensure same normalization in images
+        self.get_norm(image, new_image)
 
         # plot Grad Cam maps
         self.generate_gradcam(image, method, name, new_image)
 
+        # move everything to cpu and numpy
+        image = image[0].detach().cpu().numpy()
+        new_image = new_image[0].detach().cpu().numpy()
+        original_prediction = original_prediction.detach().cpu().numpy()
+        deformed_prediction = deformed_prediction.detach().cpu().numpy()
+        target = target.detach().cpu().numpy()
+
+        self.plot_generation_curves(name)
+
+        # save images
+        self.save_images(name, original_t1w=image[0], adapted_t1w=new_image[0], norm=self.t1w_norm)
+        self.save_images(name, original_flair=image[1], adapted_flair=new_image[1], norm=self.flair_norm)
+        self.save_images(name, original_target=target[0], original_prediction=original_prediction, adapted_prediction=deformed_prediction)
+
+
         # plot overview
-        self.generate_overview(deformed_prediction, image, name, new_image, original_prediction, target)
-        self.create_gif_of_adaption(image[0, 0].cpu(), new_image[0, 0].cpu(), name, 't1w')
-        self.create_gif_of_adaption(image[0, 1].cpu(), new_image[0, 1].cpu(), name, 'flair')
+        self.plot_overview(image, new_image, target, original_prediction, deformed_prediction, name)
+        self.create_gif_of_adaption(image[0], new_image[0], self.t1w_norm, name, 't1w')
+        self.create_gif_of_adaption(image[1], new_image[1], self.flair_norm, name, 'flair')
 
-
-    def generate_overview(self, deformed_prediction, image, name, new_image, original_prediction, target):
-        plt.figure(figsize=(12, 10))
-        self.plot_visualization(image[0].cpu(), new_image[0].cpu())
-        self.plot_original(image[0].cpu())
-        self.plot_modified(new_image[0].cpu())
-        self.plot_results(image[0].cpu(), target.cpu(), new_image[0].cpu(), original_prediction, deformed_prediction)
-        plt.tight_layout()
-        plt.savefig(f"Results/{name}/overview.png", dpi=750)
-        plt.close()
-        print(f"Overview of the results saved to Results/{name}/overview.png")
-
-    def generate_gradcam(self, image, method, name, new_image):
-        plt.figure(figsize=(10, 10))
-        self.plot_activation_map(image, 1, method)
-        self.plot_activation_map(new_image, 2, method)
-        plt.tight_layout()
-        plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
-        plt.close()
-        print(f"Grad-Cam image of the results saved to Results/{name}/GradCam.png")
-
-    def generate_results(self, image, name, target):
+    def generate_results(self, image: torch.Tensor, name, target: torch.Tensor):
         loss_fn = CrossEntropyLoss()
         with torch.no_grad():
             new_image, cost = self.adapt(image)
@@ -153,7 +145,118 @@ class Generator(nn.Module):
         print(result)
         with open(f"Results/{name}/results.txt", "x") as f:
             f.write(result)
-        return deformed_prediction, new_image, original_prediction
+        return new_image, original_prediction, deformed_prediction
+
+    def get_norm(self, image: torch.Tensor, new_image: torch.Tensor):
+        t1w_min = min(torch.min(image[0, 0]).item(), torch.min(new_image[0, 0]).item())
+        t1w_max = max(torch.max(image[0, 0]).item(), torch.max(new_image[0, 0]).item())
+        self.t1w_norm = Normalize(t1w_min, t1w_max)
+
+        flair_min = min(torch.min(image[0, 1]).item(), torch.min(new_image[0, 1]).item())
+        flair_max = max(torch.max(image[0, 1]).item(), torch.max(new_image[0, 1]).item())
+        self.flair_norm = Normalize(flair_min, flair_max)
+
+
+    def plot_overview(self,
+                      image: torch.Tensor,
+                      new_image: torch.Tensor,
+                      target: torch.Tensor,
+                      original_prediction: torch.Tensor,
+                      deformed_prediction: torch.Tensor,
+                      name: str
+                      ):
+        plt.figure(figsize=(12, 10))
+        self.plot_visualization(image, new_image)
+        self.plot_original(image)
+        self.plot_modified(new_image)
+        self.plot_results(image, target, new_image, original_prediction, deformed_prediction)
+        plt.tight_layout()
+        plt.savefig(f"Results/{name}/overview.png", dpi=750)
+        plt.close()
+        print(f"Overview of the results saved to Results/{name}/overview.png")
+
+    def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
+        plt.subplot(3, 3, 1)
+        plt.title("Dummy")
+        plt.axis('off')
+
+        plt.subplot(3, 3, 4)
+        plt.title("Dummy")
+        plt.axis('off')
+
+    def plot_original(self, image: torch.Tensor):
+        plt.subplot(3, 3, 2)
+        plt.title("Original - t1w")
+        plt.imshow(image[0], cmap='gray', norm=self.t1w_norm)
+        plt.axis('off')
+
+        plt.subplot(3, 3, 5)
+        plt.title("Original - FLAIR")
+        plt.imshow(image[1], cmap='gray', norm=self.flair_norm)
+        plt.axis('off')
+
+    def plot_modified(self, new_image: torch.Tensor):
+        plt.subplot(3, 3, 3)
+        plt.title("Modified - t1w")
+        plt.imshow(new_image[0], cmap='gray', norm=self.t1w_norm)
+        plt.axis('off')
+
+        plt.subplot(3, 3, 6)
+        plt.title("Modified - FLAIR")
+        plt.imshow(new_image[1], cmap='gray', norm=self.flair_norm)
+        plt.axis('off')
+
+    def plot_results(self, image, target, new_image, original_prediction, deformed_prediction):
+        plt.subplot(3, 3, 7)
+        plt.title("Target")
+        plt.imshow(image[0], cmap='gray', norm=self.t1w_norm)
+        plt.imshow(
+            np.concatenate((target, np.zeros_like(target), np.zeros_like(target), target > .1),
+                           axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
+        plt.axis('off')
+
+        plt.subplot(3, 3, 8)
+        plt.title("Original prediction")
+        plt.imshow(image[0], cmap='gray', norm=self.t1w_norm)
+        plt.imshow(np.concatenate(
+            (original_prediction[None], np.zeros_like(original_prediction[None]),
+             np.zeros_like(original_prediction[None]), original_prediction[None] > .1),
+            axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
+        plt.axis('off')
+
+        plt.subplot(3, 3, 9)
+        plt.title("Modified prediction")
+        plt.imshow(new_image[0], cmap='gray', norm=self.t1w_norm)
+        plt.imshow(np.concatenate(
+            (deformed_prediction[None], np.zeros_like(deformed_prediction[None]),
+             np.zeros_like(deformed_prediction[None]), deformed_prediction[None] > .1),
+            axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
+        plt.axis('off')
+
+    def generate_gradcam(self, image: torch.Tensor, method, name, new_image: torch.Tensor):
+        plt.figure(figsize=(10, 10))
+        self.plot_activation_map(image, 1, method)
+        self.plot_activation_map(new_image, 2, method)
+        plt.tight_layout()
+        plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
+        plt.close()
+        print(f"Grad-Cam image of the results saved to Results/{name}/GradCam.png")
+
+    def plot_activation_map(self, image, i, method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
+        image = image.clone()
+        b, c, w, h = image.shape
+        method = {'GradCAM': GradCAM, 'GradCAMPlusPlus': GradCAMPlusPlus}[method]
+
+        with method(model=self.model, target_layers=[self.model.decoder.seg_layers[-1]]) as cam:
+            activation_map = cam(input_tensor=image, targets=[SemanticSegmentationTarget(1, np.ones((w, h)))])[0, :]
+            cam_image = show_cam_on_image(normalize(image[:, 0]).repeat(3, 1, 1).permute(1, 2, 0).cpu().numpy(),
+                                          activation_map,
+                                          use_rgb=True)
+
+        plt.subplot(1, 2, i)
+        plt.title("Modified input image" if i == 2 else "Original image")
+        plt.imshow(cam_image, cmap='gray')
+        plt.axis('off')
 
     def save_images(self, name: str, cmap: str = 'gray', norm: Optional[Normalize] = None, **kwargs: torch.Tensor):
         for key, image in kwargs.items():
@@ -192,81 +295,9 @@ class Generator(nn.Module):
             writer.writerow(['step', 'loss', 'cost'])  # Header
             writer.writerows([(i, x, y) for i, x, y in zip(np.arange(1, len(losses)+1), losses, costs)])
 
-    def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
-        plt.subplot(3, 3, 1)
-        plt.title("Dummy")
-        plt.axis('off')
 
-        plt.subplot(3, 3, 4)
-        plt.title("Dummy")
-        plt.axis('off')
 
-    def plot_original(self, image):
-        plt.subplot(3, 3, 2)
-        plt.title("Original - t1w")
-        plt.imshow(image[0], cmap='gray')
-        plt.axis('off')
-
-        plt.subplot(3, 3, 5)
-        plt.title("Original - FLAIR")
-        plt.imshow(image[1], cmap='gray')
-        plt.axis('off')
-
-    def plot_modified(self, new_image):
-        plt.subplot(3, 3, 3)
-        plt.title("Modified - t1w")
-        plt.imshow(new_image[0], cmap='gray')
-        plt.axis('off')
-
-        plt.subplot(3, 3, 6)
-        plt.title("Modified - FLAIR")
-        plt.imshow(new_image[1], cmap='gray')
-        plt.axis('off')
-
-    def plot_results(self, image, target, new_image, original_prediction, deformed_prediction):
-        plt.subplot(3, 3, 7)
-        plt.title("Target")
-        plt.imshow(image[0], cmap='gray')
-        plt.imshow(
-            np.concatenate((target, np.zeros_like(target), np.zeros_like(target), target > .1),
-                           axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
-        plt.axis('off')
-
-        plt.subplot(3, 3, 8)
-        plt.title("Original prediction")
-        plt.imshow(image[0], cmap='gray')
-        plt.imshow(np.concatenate(
-            (original_prediction[None], np.zeros_like(original_prediction[None]),
-             np.zeros_like(original_prediction[None]), original_prediction[None] > .1),
-            axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
-        plt.axis('off')
-
-        plt.subplot(3, 3, 9)
-        plt.title("Modified prediction")
-        plt.imshow(new_image[0], cmap='gray')
-        plt.imshow(np.concatenate(
-            (deformed_prediction[None], np.zeros_like(deformed_prediction[None]),
-             np.zeros_like(deformed_prediction[None]), deformed_prediction[None] > .1),
-            axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
-        plt.axis('off')
-
-    def plot_activation_map(self, image, i, method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
-        image = image.clone()
-        b, c, w, h = image.shape
-        method = {'GradCAM': GradCAM, 'GradCAMPlusPlus': GradCAMPlusPlus}[method]
-
-        with method(model=self.model, target_layers=[self.model.decoder.seg_layers[-1]]) as cam:
-            activation_map = cam(input_tensor=image, targets=[SemanticSegmentationTarget(1, np.ones((w, h)))])[0, :]
-            cam_image = show_cam_on_image(normalize(image[:, 0]).repeat(3, 1, 1).permute(1, 2, 0).cpu().numpy(),
-                                          activation_map,
-                                          use_rgb=True)
-
-        plt.subplot(1, 2, i)
-        plt.title("Modified input image" if i == 2 else "Original image")
-        plt.imshow(cam_image, cmap='gray')
-        plt.axis('off')
-
-    def create_gif_of_adaption(self, original_image: torch.Tensor, adapted_image: torch.Tensor, name: str, sequence: str):
+    def create_gif_of_adaption(self, original_image: torch.Tensor, adapted_image: torch.Tensor, norm: Normalize, name: str, sequence: str):
         """
         Creates an animated GIF from two numpy array images.
 
@@ -276,8 +307,8 @@ class Generator(nn.Module):
         - name: Name of the generation run.
         - sequence: Name of the sequence.
         """
-        original_image = Image.fromarray(np.uint8(normalize(original_image).numpy()  * 255))
-        adapted_image = Image.fromarray(np.uint8(normalize(adapted_image).numpy() * 255))
+        original_image = Image.fromarray(np.uint8(normalize(original_image, norm.vmin, norm.vmax)  * 255))
+        adapted_image = Image.fromarray(np.uint8(normalize(adapted_image, norm.vmin, norm.vmax) * 255))
 
         # Save as GIF
         original_image.save(

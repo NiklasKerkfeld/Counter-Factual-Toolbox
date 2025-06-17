@@ -9,8 +9,7 @@ from torch.nn import CrossEntropyLoss
 from monai.networks.nets import BasicUNet
 
 from matplotlib import pyplot as plt
-from matplotlib.colors import TwoSlopeNorm
-
+from matplotlib.colors import TwoSlopeNorm, Normalize
 
 from src.Architecture.Generator import Generator
 
@@ -36,6 +35,8 @@ class AdversarialGenerator(Generator):
 
         # logging
         self.mean_changes: List[float] = []
+        self.t1w_change_norm = TwoSlopeNorm(0.0)
+        self.flair_change_norm = TwoSlopeNorm(0.0)
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # calc updated image
@@ -68,36 +69,43 @@ class AdversarialGenerator(Generator):
 
         with torch.no_grad():
             input_image, cost = self.adapt(image)
-            predicted = self.adversarial(input_image).detach().cpu().numpy()
-            predicted *= torch.sign(self.change).detach().cpu().numpy()
+            predicted = self.adversarial(input_image)[0].detach().cpu().numpy()
+            predicted *= torch.sign(self.change[0]).detach().cpu().numpy()
+
+        change = self.change[0].detach().cpu().numpy()
+
 
         self.save_images(name,
-                         predicted_change_t1w=predicted[0, 0],
-                         predicted_change_flair=predicted[0, 1],
-                         bias_map_t1w=self.change[0, 0].detach().cpu(),
-                         bias_map_flair=self.change[0, 1].detach().cpu(),
+                         predicted_change_t1w=predicted[0],
+                         bias_map_t1w=change[0],
                          cmap='bwr',
-                         norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
+                         norm= self.t1w_change_norm)
+
+        self.save_images(name,
+                         predicted_change_flair=predicted[1],
+                         bias_map_flair=change[1],
+                         cmap='bwr',
+                         norm=self.flair_change_norm)
 
         plt.figure(figsize=(10, 10))
         plt.subplot(2, 2, 1)
         plt.title("predicted Change - tw1")
-        plt.imshow(predicted[0, 0], cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
+        plt.imshow(predicted[0], cmap='bwr', norm=self.t1w_change_norm)
         plt.axis('off')
 
         plt.subplot(2, 2, 2)
         plt.title("predicted Change - flair")
-        plt.imshow(predicted[0, 1], cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
+        plt.imshow(predicted[1], cmap='bwr', norm=self.flair_change_norm)
         plt.axis('off')
 
         plt.subplot(2, 2, 3)
         plt.title("Change - t1w")
-        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
+        plt.imshow(change[0], cmap='bwr', norm=self.t1w_change_norm)
         plt.axis('off')
 
         plt.subplot(2, 2, 4)
         plt.title("Change - FLAIR")
-        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
+        plt.imshow(change[1], cmap='bwr', norm=self.flair_change_norm)
         plt.axis('off')
 
         plt.tight_layout()
@@ -108,12 +116,12 @@ class AdversarialGenerator(Generator):
     def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
         plt.title("Change - t1w")
-        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
+        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=self.t1w_change_norm)
         plt.axis('off')
 
         plt.subplot(3, 3, 4)
         plt.title("Change - FLAIR")
-        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=TwoSlopeNorm(0.0, vmin=-.2, vmax=.2))
+        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=self.flair_change_norm)
         plt.axis('off')
 
     def plot_generation_curves(self, name: str):
@@ -142,6 +150,18 @@ class AdversarialGenerator(Generator):
             writer.writerow(['step', 'loss', 'cost', 'change'])  # Header
             writer.writerows([(i, x, y, z) for i, x, y, z in zip(np.arange(1, len(losses)+1), losses, costs, change)])
 
+    def get_norm(self, image: torch.Tensor, new_image: torch.Tensor):
+        t1w_min = min(torch.min(image[0, 0]).item(), torch.min(new_image[0, 0]).item())
+        t1w_max = max(torch.max(image[0, 0]).item(), torch.max(new_image[0, 0]).item())
+        t1w_extremest = max(-t1w_min, t1w_max)
+        self.t1w_norm = Normalize(t1w_min, t1w_max)
+        self.t1w_change_norm = TwoSlopeNorm(0.0, -t1w_extremest, t1w_extremest)
+
+        flair_min = min(torch.min(image[0, 1]).item(), torch.min(new_image[0, 1]).item())
+        flair_max = max(torch.max(image[0, 1]).item(), torch.max(new_image[0, 1]).item())
+        flair_extremest = max(-t1w_min, t1w_max)
+        self.flair_norm = Normalize(flair_min, flair_max)
+        self.flair_change_norm = TwoSlopeNorm(0.0, -flair_extremest, flair_extremest)
 
 if __name__ == '__main__':
     from src.utils import get_network, load_image, get_max_slice
