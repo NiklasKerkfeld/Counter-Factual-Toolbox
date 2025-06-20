@@ -7,8 +7,9 @@ from monai.networks.nets import BasicUNet
 
 from matplotlib import pyplot as plt
 
-from .LossFunctions import MaskedCrossEntropyLoss
+from ..LossFunctions import MaskedCrossEntropyLoss
 from .ChangeGenerator import ChangeGenerator
+
 
 class AdversarialGenerator(ChangeGenerator):
     """Uses an Adversarial to ensure the image stays in the image domain."""

@@ -3,7 +3,7 @@ from typing import List, Optional
 import torch
 from torch import nn
 
-from .LossFunctions import MaskedCrossEntropyLoss
+from ..LossFunctions import MaskedCrossEntropyLoss
 from .Generator import Generator
 
 

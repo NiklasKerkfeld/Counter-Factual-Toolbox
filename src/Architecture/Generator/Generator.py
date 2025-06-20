@@ -18,7 +18,7 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import SemanticSegmentationTarget
 from torch.nn import CrossEntropyLoss
 
-from .LossFunctions import MaskedCrossEntropyLoss
+from ..LossFunctions import MaskedCrossEntropyLoss
 from src.utils import normalize, dice
 
 

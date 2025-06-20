@@ -8,8 +8,9 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import TwoSlopeNorm, Normalize
 from torch import nn
 
-from .LossFunctions import MaskedCrossEntropyLoss
+from ..LossFunctions import MaskedCrossEntropyLoss
 from .Generator import Generator
+
 
 class ChangeGenerator(Generator):
     """Class for free pixel value change."""
@@ -31,6 +32,9 @@ class ChangeGenerator(Generator):
 
         self.change = nn.Parameter(torch.zeros(*image_shape))
 
+        smoothness = torch.tensor([[[-1/8, -1/8, -1/8], [-1/8, 1, -1/8], [-1/8, -1/8, -1/8]]]).repeat(image_shape[1], 1, 1)
+        self.register_buffer('smoothness', smoothness.float())
+
         # logging
         self.mean_changes: List[float] = []
         self.t1w_change_norm = TwoSlopeNorm(0.0)
@@ -51,7 +55,10 @@ class ChangeGenerator(Generator):
                           method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         super().log_and_visualize(image, target, name, method)
 
-        change = self.change[0].detach().cpu().numpy()
+        change = self.change[0].detach().cpu()
+        torch.save(change, f"Results/{name}/bias_map.pt")
+        print(f"Generated bias map of image saved to Results/{name}/bias_map.pt")
+        change = change.numpy()
 
         self.save_images(name,
                          bias_map_t1w=change[0],
@@ -103,12 +110,12 @@ class ChangeGenerator(Generator):
     def get_norm(self, image: torch.Tensor, new_image: torch.Tensor):
         t1w_min = min(torch.min(image[0, 0]).item(), torch.min(new_image[0, 0]).item())
         t1w_max = max(torch.max(image[0, 0]).item(), torch.max(new_image[0, 0]).item())
-        t1w_extremest = max(-t1w_min, t1w_max)
+        t1w_extremest = max(-t1w_min, t1w_max) / 10
         self.t1w_norm = Normalize(t1w_min, t1w_max)
         self.t1w_change_norm = TwoSlopeNorm(0.0, -t1w_extremest, t1w_extremest)
 
         flair_min = min(torch.min(image[0, 1]).item(), torch.min(new_image[0, 1]).item())
         flair_max = max(torch.max(image[0, 1]).item(), torch.max(new_image[0, 1]).item())
-        flair_extremest = max(-t1w_min, t1w_max)
+        flair_extremest = max(-t1w_min, t1w_max) / 10
         self.flair_norm = Normalize(flair_min, flair_max)
         self.flair_change_norm = TwoSlopeNorm(0.0, -flair_extremest, flair_extremest)

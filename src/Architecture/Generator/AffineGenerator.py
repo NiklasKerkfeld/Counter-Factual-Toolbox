@@ -4,7 +4,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from .LossFunctions import MaskedCrossEntropyLoss
+from ..LossFunctions import MaskedCrossEntropyLoss
 from .Generator import Generator
 
 

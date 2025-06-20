@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from torch import nn
 
-from .LossFunctions import MaskedCrossEntropyLoss
+from ..LossFunctions import MaskedCrossEntropyLoss
 from .Generator import Generator
 
 
