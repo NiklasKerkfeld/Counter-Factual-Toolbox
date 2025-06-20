@@ -1,26 +1,22 @@
-import csv
-from typing import Sequence, Tuple, List, Literal
+from typing import Sequence, Tuple, Literal
 
-import numpy as np
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss
 
 from monai.networks.nets import BasicUNet
 
 from matplotlib import pyplot as plt
-from matplotlib.colors import TwoSlopeNorm, Normalize
 
-from src.Architecture.Generator import Generator
+from .LossFunctions import MaskedCrossEntropyLoss
+from .ChangeGenerator import ChangeGenerator
 
-
-class AdversarialGenerator(Generator):
+class AdversarialGenerator(ChangeGenerator):
+    """Uses an Adversarial to ensure the image stays in the image domain."""
     def __init__(self, model: nn.Module,
                  image_shape: Sequence[int],
-                 loss: nn.Module = CrossEntropyLoss(),
+                 loss: nn.Module = MaskedCrossEntropyLoss(),
                  alpha: float = 1.0):
-        super().__init__(model, loss, alpha)
-        self.image_shape = image_shape
+        super().__init__(model, image_shape, loss, alpha)
 
         self.adversarial = torch.nn.Sequential(
             BasicUNet(in_channels=2,
@@ -31,30 +27,18 @@ class AdversarialGenerator(Generator):
         )
         self.adversarial.eval()
 
-        self.change = nn.Parameter(torch.zeros(*self.image_shape))
-
-        # logging
-        self.mean_changes: List[float] = []
-        self.t1w_change_norm = TwoSlopeNorm(0.0)
-        self.flair_change_norm = TwoSlopeNorm(0.0)
-
-    def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def adapt(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # calc updated image
-        new_input = input + self.change
+        new_input = image + self.change
 
         # cost are the predicted change by the adversarial
         if self.alpha != 0.0:
             cost = torch.mean(torch.abs(self.adversarial(new_input)))
         else:
-            cost = torch.tensor(0.0, device=input.device)
+            cost = torch.tensor(0.0, device=image.device)
 
         self.mean_changes.append(self.change.mean().detach().cpu())
         return new_input, cost
-
-    def reset(self):
-        super().reset()
-        device = self.change.device
-        self.change = nn.Parameter(torch.zeros(*self.image_shape, device=device))
 
     def load_adversarial(self, name='adversarial'):
         self.adversarial.load_state_dict(
@@ -74,94 +58,41 @@ class AdversarialGenerator(Generator):
 
         change = self.change[0].detach().cpu().numpy()
 
-
         self.save_images(name,
                          predicted_change_t1w=predicted[0],
-                         bias_map_t1w=change[0],
                          cmap='bwr',
-                         norm= self.t1w_change_norm)
+                         norm=self.t1w_change_norm)
 
         self.save_images(name,
                          predicted_change_flair=predicted[1],
-                         bias_map_flair=change[1],
                          cmap='bwr',
                          norm=self.flair_change_norm)
 
+        self.plot_adversarial_prediction(change, name, predicted)
+
+    def plot_adversarial_prediction(self, change, name, predicted):
         plt.figure(figsize=(10, 10))
         plt.subplot(2, 2, 1)
         plt.title("predicted Change - tw1")
         plt.imshow(predicted[0], cmap='bwr', norm=self.t1w_change_norm)
         plt.axis('off')
-
         plt.subplot(2, 2, 2)
         plt.title("predicted Change - flair")
         plt.imshow(predicted[1], cmap='bwr', norm=self.flair_change_norm)
         plt.axis('off')
-
         plt.subplot(2, 2, 3)
         plt.title("Change - t1w")
         plt.imshow(change[0], cmap='bwr', norm=self.t1w_change_norm)
         plt.axis('off')
-
         plt.subplot(2, 2, 4)
         plt.title("Change - FLAIR")
         plt.imshow(change[1], cmap='bwr', norm=self.flair_change_norm)
         plt.axis('off')
-
         plt.tight_layout()
         plt.savefig(f"Results/{name}/AdversarialPrediction.png", dpi=750)
         plt.close()
         print(f"Adversarial prediction saved to Results/{name}/AdversarialPrediction.png")
 
-    def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
-        plt.subplot(3, 3, 1)
-        plt.title("Change - t1w")
-        plt.imshow(self.change[0, 0].detach().cpu(), cmap='bwr', norm=self.t1w_change_norm)
-        plt.axis('off')
-
-        plt.subplot(3, 3, 4)
-        plt.title("Change - FLAIR")
-        plt.imshow(self.change[0, 1].detach().cpu(), cmap='bwr', norm=self.flair_change_norm)
-        plt.axis('off')
-
-    def plot_generation_curves(self, name: str):
-        losses = np.array(self.losses)
-        costs = np.array(self.costs)
-        change = np.array(self.mean_changes)
-
-        # plot loss curve
-        plt.plot(losses + costs, label='complete loss')
-        plt.plot(losses, label='target loss')
-        plt.plot(costs, label='cost')
-        plt.plot(change, label='actual image change')
-        if self.alpha != 1.0:
-            plt.plot(self.alpha * costs, label='alpha * cost')
-        plt.xlabel('step')
-        plt.ylabel('loss')
-        plt.legend()
-        plt.title('Loss over generation process')
-        plt.savefig(f"Results/{name}/loss_curve.png", dpi=750)
-        plt.close()  # Close the figure to free memory
-
-        print(f"Plot with loss and cost curves of the results saved to Results/{name}/loss_curve.png")
-
-        with open(f"Results/{name}/loss_curves.csv", mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['step', 'loss', 'cost', 'change'])  # Header
-            writer.writerows([(i, x, y, z) for i, x, y, z in zip(np.arange(1, len(losses)+1), losses, costs, change)])
-
-    def get_norm(self, image: torch.Tensor, new_image: torch.Tensor):
-        t1w_min = min(torch.min(image[0, 0]).item(), torch.min(new_image[0, 0]).item())
-        t1w_max = max(torch.max(image[0, 0]).item(), torch.max(new_image[0, 0]).item())
-        t1w_extremest = max(-t1w_min, t1w_max)
-        self.t1w_norm = Normalize(t1w_min, t1w_max)
-        self.t1w_change_norm = TwoSlopeNorm(0.0, -t1w_extremest, t1w_extremest)
-
-        flair_min = min(torch.min(image[0, 1]).item(), torch.min(new_image[0, 1]).item())
-        flair_max = max(torch.max(image[0, 1]).item(), torch.max(new_image[0, 1]).item())
-        flair_extremest = max(-t1w_min, t1w_max)
-        self.flair_norm = Normalize(flair_min, flair_max)
-        self.flair_change_norm = TwoSlopeNorm(0.0, -flair_extremest, flair_extremest)
 
 if __name__ == '__main__':
     from src.utils import get_network, load_image, get_max_slice

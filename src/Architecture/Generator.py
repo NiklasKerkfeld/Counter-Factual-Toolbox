@@ -6,16 +6,19 @@ from typing import Tuple, List, Literal, Optional
 
 import numpy as np
 import torch
+from torch import nn
 import torch.nn.functional as F
+
 from PIL import Image
 from matplotlib import pyplot as plt
-from matplotlib.colors import Normalize, TwoSlopeNorm
+from matplotlib.colors import Normalize
+
 from pytorch_grad_cam import GradCAM, GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import SemanticSegmentationTarget
-from torch import nn
 from torch.nn import CrossEntropyLoss
 
+from .LossFunctions import MaskedCrossEntropyLoss
 from src.utils import normalize, dice
 
 
@@ -23,9 +26,8 @@ class Generator(nn.Module):
     """Super class for image adaption."""
 
     def __init__(self, model: nn.Module,
-                 loss=CrossEntropyLoss(),
-                 alpha: float = 1.0,
-                 name: str = 'Generator'):
+                 loss=MaskedCrossEntropyLoss(),
+                 alpha: float = 1.0):
         """
         Super class for image adaption.
 
@@ -36,7 +38,6 @@ class Generator(nn.Module):
         super().__init__()
         self.model = model
         self.alpha = alpha
-
         self.loss = loss
 
         self.model.eval()

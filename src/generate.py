@@ -2,12 +2,10 @@ import glob
 from typing import Optional
 
 import torch
-from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from tqdm import trange
 
-from src.Architecture.CustomLoss import MaskedCrossentropy
-from src.Architecture.Generator import Generator
+from src.Architecture import Generator
 from src.utils import get_network, load_image, get_max_slice, dice
 
 
@@ -54,7 +52,6 @@ if __name__ == '__main__':
                                   AffineGenerator)
 
     model = get_network(configuration='2d', fold=0)
-    loss = MaskedCrossentropy()
 
     # generator = ScaleAndShiftGenerator(model, (1, 2, 160, 256), loss=loss, alpha=.001)
     # optimizer = torch.optim.Adam([generator.scale, generator.shift], lr=1e-1)
@@ -68,7 +65,7 @@ if __name__ == '__main__':
     # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
     # optimizer = torch.optim.Adam([generator.change], lr=1e-1)
 
-    generator = AdversarialGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
+    generator = AdversarialGenerator(model, (1, 2, 160, 256))
     generator.load_adversarial()
     optimizer = torch.optim.Adam([generator.change], lr=1e-3)
 

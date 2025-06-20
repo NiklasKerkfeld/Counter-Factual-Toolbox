@@ -11,8 +11,8 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from tqdm import tqdm
 
 from src.Adversarial.Dataset2D import Dataset2D
-from src.Architecture.AdversarialGenerator import AdversarialGenerator
-from src.Architecture.CustomLoss import MaskedCrossentropy
+from src.Architecture import AdversarialGenerator
+from src.Architecture import MaskedCrossEntropyLoss
 from src.utils import normalize, get_network
 
 EXAMPLE = 417
@@ -37,7 +37,7 @@ class Trainer:
 
         self.model = get_network(configuration='2d', fold=0)
         self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 160, 256),
-                                              loss=MaskedCrossentropy())
+                                              loss=MaskedCrossEntropyLoss())
         self.generator.to(self.device)
         self.loss_fn = torch.nn.MSELoss()
 

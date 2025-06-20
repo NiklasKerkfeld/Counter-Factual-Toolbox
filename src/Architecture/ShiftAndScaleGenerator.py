@@ -2,13 +2,13 @@ from typing import Tuple, Sequence
 
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss
 
-from src.Architecture.Generator import Generator
+from .LossFunctions import MaskedCrossEntropyLoss
+from .Generator import Generator
 
 
 class ScaleGenerator(Generator):
-    def __init__(self, model: nn.Module, loss=CrossEntropyLoss(), alpha: float = 1.0):
+    def __init__(self, model: nn.Module, loss=MaskedCrossEntropyLoss(), alpha: float = 1.0):
         """
         Super class for image adaption.
 
@@ -36,7 +36,7 @@ class ScaleGenerator(Generator):
 
 
 class ShiftGenerator(Generator):
-    def __init__(self, model: nn.Module, loss=CrossEntropyLoss(), alpha: float = 1.0):
+    def __init__(self, model: nn.Module, loss=MaskedCrossEntropyLoss(), alpha: float = 1.0):
         """
         Super class for image adaption.
 
@@ -66,7 +66,7 @@ class ShiftGenerator(Generator):
 class ScaleAndShiftGenerator(Generator):
     def __init__(self, model: nn.Module,
                  image_shape: Sequence[int],
-                 loss=CrossEntropyLoss(),
+                 loss=MaskedCrossEntropyLoss(),
                  alpha: float = 1.0):
         """
         Super class for image adaption.

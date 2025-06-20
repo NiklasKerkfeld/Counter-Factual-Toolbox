@@ -2,14 +2,14 @@ from typing import Tuple
 
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss
 import torch.nn.functional as F
 
-from src.Architecture.Generator import Generator
+from .LossFunctions import MaskedCrossEntropyLoss
+from .Generator import Generator
 
 
 class AffineGenerator(Generator):
-    def __init__(self, model: nn.Module, loss=CrossEntropyLoss(), alpha: float = 1.0):
+    def __init__(self, model: nn.Module, loss=MaskedCrossEntropyLoss(), alpha: float = 1.0):
         super(AffineGenerator, self).__init__(model, loss, alpha)
 
         self.change = nn.Parameter(torch.zeros(2, 2, 3), requires_grad=True)

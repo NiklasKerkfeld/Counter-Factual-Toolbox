@@ -3,9 +3,9 @@ from torch import nn
 from torch.nn import functional as F
 
 
-class MaskedCrossentropy(nn.Module):
+class MaskedCrossEntropyLoss(nn.Module):
     def __init__(self):
-        super(MaskedCrossentropy, self).__init__()
+        super(MaskedCrossEntropyLoss, self).__init__()
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():

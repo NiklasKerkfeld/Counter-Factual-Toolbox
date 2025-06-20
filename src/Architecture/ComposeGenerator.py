@@ -2,16 +2,16 @@ from typing import List, Optional
 
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss
 
-from src.Architecture.Generator import Generator
+from .LossFunctions import MaskedCrossEntropyLoss
+from .Generator import Generator
 
 
 class ComposeGenerator(Generator):
-    def __init__(self, model: nn.Module, loss=CrossEntropyLoss(), alpha: float = 1.0,
+    def __init__(self, model: nn.Module, loss=MaskedCrossEntropyLoss(), alpha: float = 1.0,
                  composition: List[Generator] = [],
                  weights: Optional[List[float]] = None):
-        super(ComposeGenerator, self).__init__( model, loss, alpha)
+        super(ComposeGenerator, self).__init__(model, loss, alpha)
 
         self.composition = composition
         self.weights = weights if weights is not None else [1.0] * len(composition)

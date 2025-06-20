@@ -1,5 +1,4 @@
 """Classes for 2D and 3D Deformation"""
-import os
 from typing import Tuple
 
 import numpy as np
@@ -7,9 +6,9 @@ import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from torch import nn
-from torch.nn import CrossEntropyLoss
 
-from src.Architecture.Generator import Generator
+from .LossFunctions import MaskedCrossEntropyLoss
+from .Generator import Generator
 
 
 class ElasticDeformation2D(Generator):
@@ -17,7 +16,7 @@ class ElasticDeformation2D(Generator):
     def __init__(self, model: nn.Module,
                  image_shape: Tuple[int, int, int, int],
                  parameter_grid_shape: Tuple[int, int],
-                 loss: nn.Module = CrossEntropyLoss(),
+                 loss: nn.Module = MaskedCrossEntropyLoss(),
                  alpha: float = 1.0):
         """
         2D elastic deformation.
@@ -105,7 +104,7 @@ class ElasticDeformation3D(Generator):
     def __init__(self, model: nn.Module,
                  image_shape: Tuple[int, int, int],
                  parameter_grid_shape: Tuple[int, int, int],
-                 loss: nn.Module = CrossEntropyLoss(),
+                 loss: nn.Module = MaskedCrossEntropyLoss(),
                  alpha: float = 1.0):
         super().__init__(model, loss, alpha)
         """
