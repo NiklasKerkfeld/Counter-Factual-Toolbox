@@ -20,7 +20,7 @@ from torch.nn import CrossEntropyLoss
 from tqdm import trange
 
 from ..LossFunctions import MaskedCrossEntropyLoss
-from src.utils import normalize, dice
+from src.utils import normalize, intersection_over_union
 
 
 class Generator(nn.Module):
@@ -146,14 +146,14 @@ class Generator(nn.Module):
 
             original_loss = loss_fn(original_prediction, target)
             deformed_loss = loss_fn(deformed_prediction, target)
-            original_dice = dice(torch.argmax(original_prediction, dim=1), target)
-            deformed_dice = dice(torch.argmax(deformed_prediction, dim=1), target)
+            original_iou = intersection_over_union(torch.argmax(original_prediction, dim=1), target)
+            deformed_iou = intersection_over_union(torch.argmax(deformed_prediction, dim=1), target)
 
             original_prediction = F.softmax(original_prediction, dim=1)[0, 1].cpu()
             deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
         result = (f"Loss {original_loss} --> {deformed_loss}\n"
                   f"Adaption cost: {cost}\n"
-                  f"Dice: {original_dice} --> {deformed_dice}")
+                  f"IoU: {original_iou} --> {deformed_iou}")
         print(result)
         with open(f"Results/{name}/results.txt", "x") as f:
             f.write(result)

@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from tqdm import tqdm
 
 from src.Trainer.Dataset2D import Dataset2D
-from src.utils import normalize, dice
+from src.utils import normalize, intersection_over_union
 
 EXAMPLE = 444
 
@@ -95,7 +95,7 @@ class Trainer:
         self.model.eval()
 
         loss_lst = []
-        dice_lst = []
+        iou_lst = []
         bar = tqdm(self.valid_dataloader)
         for image, target in bar:
             with torch.no_grad():
@@ -106,12 +106,12 @@ class Trainer:
                 loss = self.loss_fn(pred, target)
 
             pred = F.softmax(pred, dim=1)
-            dice_lst.append(dice(torch.argmax(pred, dim=1), target).cpu().item())
+            iou_lst.append(intersection_over_union(torch.argmax(pred, dim=1), target).cpu().item())
             loss_lst.append(loss.detach().cpu().item())
             bar.set_description(f"validation loss: {loss.item():.8f}")
 
         self.log_loss("validation", loss=np.mean(loss_lst))
-        self.log_loss("validation", dice=np.mean(dice_lst))
+        self.log_loss("validation", iou=np.mean(iou_lst))
 
         image, target = self.valid_dataset[EXAMPLE]
         pred = F.softmax(self.model(image[None].to(self.device)), dim=1)

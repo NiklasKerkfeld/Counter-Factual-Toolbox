@@ -40,7 +40,7 @@ class Trainer:
         self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 160, 256),
                                               loss=MaskedCrossEntropyLoss())
         self.generator.to(self.device)
-        self.loss_fn = torch.nn.MSELoss()
+        self.loss_fn = torch.nn.L1Loss()
 
         self.dataset = Dataset2D("data/Dataset101_fcd", p=p)
         self.dataloader_gen = DataLoader(self.dataset,

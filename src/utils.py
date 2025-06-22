@@ -96,7 +96,7 @@ def get_network(configuration: str, fold: int = 0):
     return net
 
 
-def dice(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+def intersection_over_union(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     pred = pred.flatten()
     target = target.flatten()
 
