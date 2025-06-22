@@ -17,7 +17,7 @@ class ElasticDeformation2D(Generator):
                  image_shape: Tuple[int, int, int, int],
                  parameter_grid_shape: Tuple[int, int],
                  loss: nn.Module = MaskedCrossEntropyLoss(),
-                 alpha: float = 1.0):
+                 alpha: float = 0.1):
         """
         2D elastic deformation.
 

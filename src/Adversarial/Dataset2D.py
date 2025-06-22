@@ -1,7 +1,6 @@
 import glob
 import os.path
 
-import torch
 from monai.transforms import Compose, ToTensord
 from torch.utils.data import Dataset
 from tqdm import tqdm

@@ -70,6 +70,7 @@ class Generator(nn.Module):
         self.losses.append(loss.detach().cpu())
         self.costs.append(cost.detach().cpu())
 
+        print(f"{loss=}, {self.alpha=}, {cost=}")
         return loss + self.alpha * cost
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -119,7 +120,6 @@ class Generator(nn.Module):
         self.save_images(name, original_t1w=image[0], adapted_t1w=new_image[0], norm=self.t1w_norm)
         self.save_images(name, original_flair=image[1], adapted_flair=new_image[1], norm=self.flair_norm)
         self.save_images(name, original_target=target[0], original_prediction=original_prediction, adapted_prediction=deformed_prediction)
-
 
         # plot overview
         self.plot_overview(image, new_image, target, original_prediction, deformed_prediction, name)

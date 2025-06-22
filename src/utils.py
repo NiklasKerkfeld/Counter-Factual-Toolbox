@@ -128,7 +128,10 @@ def get_vram(device: torch.device):
 
 def get_max_slice(target: torch.Tensor, dim: int) -> Tuple[int, int]:
     sizes = torch.sum(target, dim=[i for i in range(target.dim()) if i != dim])
-    return sizes.argmax().item(), sizes.max().item()
+    slice_idx, maximum = sizes.argmax().item(), sizes.max().item()
+    if maximum == 0:
+        slice_idx = target.shape[dim] // 2
+    return slice_idx, maximum
 
 
 def get_split():

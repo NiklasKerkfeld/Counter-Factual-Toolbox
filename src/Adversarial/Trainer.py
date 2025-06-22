@@ -11,8 +11,8 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from tqdm import tqdm
 
 from src.Adversarial.Dataset2D import Dataset2D
-from src.Architecture import AdversarialGenerator
-from src.Architecture import MaskedCrossEntropyLoss
+from src.Architecture.Generator import AdversarialGenerator
+from src.Architecture.LossFunctions import MaskedCrossEntropyLoss
 from src.utils import normalize, get_network
 
 EXAMPLE = 417

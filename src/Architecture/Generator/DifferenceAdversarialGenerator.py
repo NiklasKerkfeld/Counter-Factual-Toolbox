@@ -1,12 +1,14 @@
 import csv
 from typing import Sequence, List, Tuple, Literal
 
+import numpy as np
+from scipy.stats import pearsonr
+
 import torch
+from torch import nn
+
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
-from scipy.stats import pearsonr
-from sympy.physics.control.control_plots import np
-from torch import nn
 
 from .AdversarialGenerator import AdversarialGenerator
 from ..LossFunctions import MaskedCrossEntropyLoss, DistanceLoss
@@ -43,7 +45,7 @@ class DifferenceAdversarialGenerator(AdversarialGenerator):
             cost += self.beta * dist_loss
             self.distance_loss_list.append(dist_loss)
 
-        self.mean_changes.append(self.change.mean().detach().cpu())
+        self.mean_changes.append(torch.abs(self.change).mean().detach().cpu())
         return new_input, cost
 
     def distance_cost(self):

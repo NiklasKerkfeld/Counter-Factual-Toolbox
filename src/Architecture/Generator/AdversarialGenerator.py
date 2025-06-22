@@ -34,11 +34,13 @@ class AdversarialGenerator(ChangeGenerator):
 
         # cost are the predicted change by the adversarial
         if self.alpha != 0.0:
-            cost = torch.mean(torch.abs(self.adversarial(new_input)))
+            pred = self.adversarial(new_input)
+            cost = torch.mean(pred)
+            print(pred.max(), pred.min(), pred.mean(), pred.median())
         else:
             cost = torch.tensor(0.0, device=image.device)
 
-        self.mean_changes.append(self.change.mean().detach().cpu())
+        self.mean_changes.append(torch.abs(self.change).mean().detach().cpu())
         return new_input, cost
 
     def load_adversarial(self, name='adversarial'):
@@ -52,10 +54,10 @@ class AdversarialGenerator(ChangeGenerator):
                           method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         super().log_and_visualize(image, target, name, method)
 
-        with torch.no_grad():
-            input_image, cost = self.adapt(image)
-            predicted = self.adversarial(input_image)[0].detach().cpu().numpy()
-            predicted *= torch.sign(self.change[0]).detach().cpu().numpy()
+        input_image, cost = self.adapt(image)
+        predicted = self.adversarial(input_image)[0].detach().cpu().numpy()
+        print('predicted', predicted.max(), predicted.min(), predicted.mean())
+        predicted *= torch.sign(self.change[0]).detach().cpu().numpy()
 
         change = self.change[0].detach().cpu().numpy()
 
