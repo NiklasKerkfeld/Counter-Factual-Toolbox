@@ -56,7 +56,6 @@ class AdversarialGenerator(ChangeGenerator):
 
         input_image, cost = self.adapt(image)
         predicted = self.adversarial(input_image)[0].detach().cpu().numpy()
-        print('predicted', predicted.max(), predicted.min(), predicted.mean())
         predicted *= torch.sign(self.change[0]).detach().cpu().numpy()
 
         change = self.change[0].detach().cpu().numpy()

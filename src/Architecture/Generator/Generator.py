@@ -70,7 +70,6 @@ class Generator(nn.Module):
         self.losses.append(loss.detach().cpu())
         self.costs.append(cost.detach().cpu())
 
-        print(f"{loss=}, {self.alpha=}, {cost=}")
         return loss + self.alpha * cost
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
