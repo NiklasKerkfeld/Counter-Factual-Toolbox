@@ -91,12 +91,10 @@ class ChangeGenerator(Generator):
         change = np.array(self.mean_changes)
 
         # plot loss curve
-        plt.plot(losses + costs, label='complete loss')
+        plt.plot(losses + self.alpha * costs, label='complete loss')
         plt.plot(losses, label='target loss')
-        plt.plot(costs, label='cost')
+        plt.plot(self.alpha * costs, label='cost')
         plt.plot(change, label='actual image change')
-        if self.alpha != 1.0:
-            plt.plot(self.alpha * costs, label='alpha * cost')
         plt.xlabel('step')
         plt.ylabel('loss')
         plt.legend()
