@@ -136,7 +136,7 @@ class Trainer:
             if i != self.iterations - 1:
                 self.generate(alpha=self.alpha)
 
-    def save(self, name: str = "") -> None:
+    def save(self) -> None:
         """
         Save the model in models folder.
 
@@ -146,7 +146,7 @@ class Trainer:
         os.makedirs("models/", exist_ok=True)
         torch.save(
             self.generator.adversarial.state_dict(),
-            f"models/{name}",
+            f"models/{self.name}_adversarial",
         )
 
     def log_loss(self, task: str, **kwargs: Dict[str, float]) -> None:
