@@ -61,7 +61,7 @@ class Dataset2D(Dataset):
         target = item['target'].select(self.slice_dim, i)
         change = item['change'].select(self.slice_dim, i)
 
-        if torch.rand() < self.p:
+        if torch.rand(1).item() < self.p:
             change += torch.randn_like(change) * 0.1
 
         return image, target[0], change
