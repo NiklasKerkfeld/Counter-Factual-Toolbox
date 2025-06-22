@@ -17,6 +17,7 @@ from pytorch_grad_cam import GradCAM, GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import SemanticSegmentationTarget
 from torch.nn import CrossEntropyLoss
+from tqdm import trange
 
 from ..LossFunctions import MaskedCrossEntropyLoss
 from src.utils import normalize, dice
@@ -48,6 +49,17 @@ class Generator(nn.Module):
 
         self.t1w_norm = Normalize()
         self.flair_norm = Normalize()
+
+    def generate(self, image, optimizer, steps, target):
+        print("starting process...")
+        bar = trange(steps, desc='generating...')
+        for _ in bar:
+            optimizer.zero_grad()
+            loss = self(image, target)
+            loss.backward()
+            optimizer.step()
+
+            bar.set_description(f"loss: {loss.detach().cpu().item()}")
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """

@@ -36,7 +36,6 @@ class AdversarialGenerator(ChangeGenerator):
         if self.alpha != 0.0:
             pred = self.adversarial(new_input)
             cost = torch.mean(pred)
-            print(pred.max(), pred.min(), pred.mean(), pred.median())
         else:
             cost = torch.tensor(0.0, device=image.device)
 

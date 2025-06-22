@@ -22,12 +22,12 @@ if __name__ == '__main__':
     # generator = ElasticDeformation2D(model, (1, 2, 160, 256), (20, 32), alpha=0.1)
     # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
 
-    # generator = ChangeGenerator(model, (1, 2, 160, 256), loss=loss, alpha=1.0)
-    # optimizer = torch.optim.Adam([generator.change], lr=1e-3)
+    generator = ChangeGenerator(model, (1, 2, 160, 256), alpha=10.0)
+    optimizer = torch.optim.Adam([generator.change], lr=1e-3)
 
-    generator = AdversarialGenerator(model, (1, 2, 160, 256))
-    generator.load_adversarial("adversarial(old)")
-    optimizer = torch.optim.Adam([generator.change], lr=1e-2)
+    # generator = AdversarialGenerator(model, (1, 2, 160, 256))
+    # generator.load_adversarial("adversarial")
+    # optimizer = torch.optim.Adam([generator.change], lr=1e-2)
 
     # change_list = [torch.load("Results/69_AdversarialGenerator/bias_map.pt")]
     # generator = DifferenceAdversarialGenerator(model, (1, 2, 160, 256), change_list=change_list, alpha=10.0)
