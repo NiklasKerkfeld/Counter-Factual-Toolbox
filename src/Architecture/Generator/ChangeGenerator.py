@@ -17,7 +17,8 @@ class ChangeGenerator(Generator):
     def __init__(self, model: nn.Module,
                  image_shape: Sequence[int],
                  loss: nn.Module = MaskedCrossEntropyLoss(),
-                 alpha: float = 1.0):
+                 alpha: float = 1.0,
+                 beta: float = 1.0):
         """
         Classes for free pixel value change.
 
@@ -29,10 +30,11 @@ class ChangeGenerator(Generator):
         """
         super().__init__(model, loss, alpha)
         self.image_shape = image_shape
+        self.beta = beta
 
         self.change = nn.Parameter(torch.zeros(*image_shape))
 
-        smoothness = torch.tensor([[[-1/8, -1/8, -1/8], [-1/8, 1, -1/8], [-1/8, -1/8, -1/8]]]).repeat(image_shape[1], 1, 1)
+        smoothness = torch.tensor([[[[-1/8, -1/8, -1/8], [-1/8, 1, -1/8], [-1/8, -1/8, -1/8]]]]).repeat(2, image_shape[0], 1, 1)
         self.register_buffer('smoothness', smoothness.float())
 
         # logging
@@ -41,7 +43,9 @@ class ChangeGenerator(Generator):
         self.flair_change_norm = TwoSlopeNorm(0.0)
 
     def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        return input + self.change, torch.mean(torch.abs(self.change))
+        smoothness = nn.functional.conv2d(self.change, self.smoothness, groups=2)
+        cost = torch.mean(torch.abs(self.change)) + self.beta * torch.mean(torch.abs(smoothness))
+        return input + self.change, cost
 
     def reset(self):
         super().reset()
