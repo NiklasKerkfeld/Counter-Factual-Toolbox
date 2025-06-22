@@ -98,7 +98,7 @@ class Trainer:
         bar = tqdm(self.dataloader_gen, desc='generating')
         for idx, (image, target, _) in enumerate(bar):
             self.generator.reset()
-            optimizer = torch.optim.Adam([self.generator.change], lr=1e-3)
+            optimizer = torch.optim.Adam([self.generator.change], lr=1e-2)
 
             image = image.to(self.device)
             target = target.to(self.device)
