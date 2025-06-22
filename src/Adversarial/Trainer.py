@@ -24,7 +24,8 @@ class Trainer:
                  epochs: int = 3,
                  steps: int = 25,
                  batch_size: int = 16,
-                 alpha: float = 1.0):
+                 alpha: float = 1.0,
+                 p: float = 0.0):
         self.iterations = iterations
         self.epochs = epochs
         self.steps = steps
@@ -41,7 +42,7 @@ class Trainer:
         self.generator.to(self.device)
         self.loss_fn = torch.nn.MSELoss()
 
-        self.dataset = Dataset2D("data/Dataset101_fcd")
+        self.dataset = Dataset2D("data/Dataset101_fcd", p=p)
         self.dataloader_gen = DataLoader(self.dataset,
                                          batch_size=self.batch_size,
                                          shuffle=False)
@@ -95,7 +96,7 @@ class Trainer:
         loss_lst = []
 
         bar = tqdm(self.dataloader_gen, desc='generating')
-        for idx, (image, target, change) in enumerate(bar):
+        for idx, (image, target, _) in enumerate(bar):
             self.generator.reset()
             optimizer = torch.optim.Adam([self.generator.change], lr=1e-3)
 
@@ -220,7 +221,7 @@ def get_args() -> argparse.Namespace:
         "--epochs",
         "-e",
         type=int,
-        default=3,
+        default=10,
         help="Number of epochs to train adversarial in every iteration",
     )
 
@@ -228,7 +229,7 @@ def get_args() -> argparse.Namespace:
         "--steps",
         "-s",
         type=int,
-        default=15,
+        default=50,
         help="Number of steps for generating image changes",
     )
 
@@ -248,6 +249,14 @@ def get_args() -> argparse.Namespace:
         help="Batch size",
     )
 
+    parser.add_argument(
+        "--noise_prob",
+        "-p",
+        type=float,
+        default=0.0,
+        help="Probability of noise being added to adversarial change",
+    )
+
     return parser.parse_args()
 
 
@@ -255,6 +264,7 @@ if __name__ == '__main__':
     import glob
 
     args = get_args()
+    print(args)
 
     args.name = f"{len(glob.glob('logs/adversarial/*'))}_{args.name}"
     trainer = Trainer(iterations=args.iterations,
@@ -262,6 +272,7 @@ if __name__ == '__main__':
                       steps=args.steps,
                       name=args.name,
                       batch_size=args.batchsize,
-                      alpha=args.alpha)
+                      alpha=args.alpha,
+                      p=args.noise_prob)
 
     trainer.train()
