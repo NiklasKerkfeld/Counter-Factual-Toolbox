@@ -66,6 +66,7 @@ class Trainer:
 
     def train_adversarial(self):
         optimizer = torch.optim.Adam(self.generator.adversarial.parameters(), lr=1e-3)
+        min_loss = float('inf')
 
         for e in range(self.epochs):
             print(f"start epoch {e + 1}:")
@@ -86,10 +87,13 @@ class Trainer:
                 loss_lst.append(loss.detach().cpu().item())
                 bar.set_description(f"training loss: {loss.item():.8f}")
 
-            self.save()
+            mean_loss = np.mean(loss_lst)
+            if mean_loss <= min_loss:
+                min_loss = mean_loss
+                self.save()
 
-            print(f"finished training epoch {e + 1} with an average loss of {np.mean(loss_lst)}")
-            self.log_loss("training", loss=np.mean(loss_lst))
+            print(f"finished training epoch {e + 1} with an average loss of {mean_loss}")
+            self.log_loss("training", loss=mean_loss)
 
     def generate(self, alpha: float = 1.0):
         self.generator.alpha = alpha
@@ -146,7 +150,7 @@ class Trainer:
         os.makedirs("models/", exist_ok=True)
         torch.save(
             self.generator.adversarial.state_dict(),
-            f"models/{self.name}_adversarial",
+            f"models/{self.name}_adversarial.pth",
         )
 
     def log_loss(self, task: str, **kwargs: Dict[str, float]) -> None:
