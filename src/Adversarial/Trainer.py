@@ -65,6 +65,7 @@ class Trainer:
                        prediction=pred[0, 1])
 
     def train_adversarial(self):
+        self.generator.load_adversarial(f"models/{self.name}_adversarial.pth")
         optimizer = torch.optim.Adam(self.generator.adversarial.parameters(), lr=1e-3)
         min_loss = float('inf')
 
