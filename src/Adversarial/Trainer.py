@@ -86,7 +86,7 @@ class Trainer:
                 loss_lst.append(loss.detach().cpu().item())
                 bar.set_description(f"training loss: {loss.item():.8f}")
 
-            self.save(f"adversarial.pth")
+            self.save()
 
             print(f"finished training epoch {e + 1} with an average loss of {np.mean(loss_lst)}")
             self.log_loss("training", loss=np.mean(loss_lst))
