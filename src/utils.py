@@ -146,8 +146,21 @@ def get_split():
     return split
 
 
+def get_image(path, slice_dim, slice_idx: Optional[int] = None):
+    item = load_image(path)
+    if slice_idx is None:
+        slice_idx, size = get_max_slice(item['target'], slice_dim + 1)
+        print(f"selected slice: {slice_idx} with a target size of {size} pixels.")
+    image = item['tensor'].select(slice_dim + 1, slice_idx)[None]
+    target = item['target'].select(slice_dim + 1, slice_idx)
+    return image, target
+
+
 if __name__ == '__main__':
     split = get_split()
     print(f"{len(split['train'])} {split['train']=}")
     print(f"{len(split['valid'])} {split['valid']=}")
     print(f"{len(split['test'])} {split['test']=}")
+
+
+

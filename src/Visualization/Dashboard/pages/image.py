@@ -59,7 +59,7 @@ def update_image_blocks(selected_datasets, current_children):
 
 
 def build_image_block(dataset):
-    image_dict = loader.get_image(dataset)
+    image_dict = src.utils.get_image(dataset)
     init_seq = list(image_dict.keys())[0]
     min_val = int(image_dict[init_seq].min())
     max_val = int(image_dict[init_seq].max() + 1)
@@ -172,7 +172,7 @@ def get_image(dataset: str,
               show_pred: bool = False,
               apply_change: bool = False):
     dim = orientation_to_dim.get(orientation, 0)
-    image = loader.get_image(dataset)[sequence].take([slice], axis=dim).squeeze(axis=dim).clip(
+    image = src.utils.get_image(dataset)[sequence].take([slice], axis=dim).squeeze(axis=dim).clip(
         value_range[0],
         value_range[1])
     image -= value_range[0]
@@ -199,7 +199,7 @@ def get_image(dataset: str,
         img_pil = blend_segmentation(img_pil, pred, cmap='Reds')
 
     if show_target:
-        target = loader.get_image(dataset)['target'].take([slice], axis=dim).squeeze(axis=dim)
+        target = src.utils.get_image(dataset)['target'].take([slice], axis=dim).squeeze(axis=dim)
         img_pil = blend_segmentation(img_pil, target)
 
 
@@ -220,7 +220,7 @@ def get_image(dataset: str,
 )
 def sequence_select(sequences):
     dataset = ctx.triggered_id['index']
-    image = loader.get_image(dataset)[sequences[0]]
+    image = src.utils.get_image(dataset)[sequences[0]]
     max_value, min_value = image.max(), image.min()
 
     return [max_value, max_value, max_value], [min_value, min_value, min_value]

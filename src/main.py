@@ -3,10 +3,9 @@ from typing import Optional
 
 import torch
 from torch.optim import Adam
-from tqdm import trange
 
 from src.Architecture.Generator import Generator
-from src.utils import load_image, get_max_slice
+from src.utils import get_image
 
 
 def generate(path: str,
@@ -33,13 +32,3 @@ def generate(path: str,
     generator.log_and_visualize(image,
                                 target,
                                 f"{len(glob.glob(f'Results/*'))}_{name}", 'GradCAM')
-
-
-def get_image(path, slice_dim, slice_idx):
-    item = load_image(path)
-    if slice_idx is None:
-        slice_idx, size = get_max_slice(item['target'], slice_dim + 1)
-        print(f"selected slice: {slice_idx} with a target size of {size} pixels.")
-    image = item['tensor'].select(slice_dim + 1, slice_idx)[None]
-    target = item['target'].select(slice_dim + 1, slice_idx)
-    return image, target

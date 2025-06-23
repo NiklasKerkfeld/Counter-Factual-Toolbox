@@ -28,11 +28,18 @@ class DistanceLoss(nn.Module):
         return torch.mean(difference * attention)
 
 
+class RelativeL1Loss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        return torch.mean(torch.abs(pred - target) / (torch.abs(target) + 1.0))
+
+
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
+    pred = torch.tensor([0.01])
+    target = torch.tensor([0.0])
 
-    x = torch.linspace(-5, 5, 10000)
-    y = 1 - torch.abs(x)
-
-    plt.plot(x, y)
-    plt.show()
+    rel_l1 = RelativeL1Loss()
+    loss = rel_l1(pred, target)
+    print(loss)
