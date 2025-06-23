@@ -32,7 +32,7 @@ class Trainer:
         print(f"Using device: {self.device}")
         self.model.to(self.device)
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
         self.loss_fn = RelativeL1Loss()
 
         self.dataset = Dataset2D("data/Dataset101_fcd", noise=noise)
