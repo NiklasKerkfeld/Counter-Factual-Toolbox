@@ -167,9 +167,10 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--noise",
         "-s",
-        type=Tuple[float, float],
+        type=float,
+        nargs=2,
         default=(0.0, 1.0),
-        help="Noise added to the image",
+        help="Noise added to the image (e.g., --noise 0.0 1.0)",
     )
 
     return parser.parse_args()
