@@ -65,6 +65,7 @@ class Trainer:
                        prediction=pred[0, 1])
 
     def train_adversarial(self):
+        self.generator.adversarial.train()
         if os.path.exists(f"models/{self.name}_adversarial.pth"):
             self.generator.load_adversarial(f"{self.name}_adversarial")
         optimizer = torch.optim.Adam(self.generator.adversarial.parameters(), lr=1e-3)
@@ -98,6 +99,7 @@ class Trainer:
             self.log_loss("training", loss=mean_loss)
 
     def generate(self, alpha: float = 1.0):
+        self.generator.adversarial.eval()
         self.generator.alpha = alpha
         loss_lst = []
 
