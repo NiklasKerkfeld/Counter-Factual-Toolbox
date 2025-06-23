@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from src.Adversarial.Dataset2D import Dataset2D
 from src.Architecture.Generator import AdversarialGenerator
-from src.Architecture.LossFunctions import MaskedCrossEntropyLoss
+from src.Architecture.LossFunctions import MaskedCrossEntropyLoss, RelativeL1Loss
 from src.utils import normalize, get_network
 
 EXAMPLE = 417
@@ -40,7 +40,7 @@ class Trainer:
         self.generator = AdversarialGenerator(self.model, (self.batch_size, 2, 160, 256),
                                               loss=MaskedCrossEntropyLoss())
         self.generator.to(self.device)
-        self.loss_fn = torch.nn.L1Loss()
+        self.loss_fn = RelativeL1Loss()
 
         self.dataset = Dataset2D("data/Dataset101_fcd", p=p)
         self.dataloader_gen = DataLoader(self.dataset,
@@ -106,7 +106,7 @@ class Trainer:
         bar = tqdm(self.dataloader_gen, desc='generating')
         for idx, (image, target, _) in enumerate(bar):
             self.generator.reset()
-            optimizer = torch.optim.Adam([self.generator.change], lr=1e-2)
+            optimizer = torch.optim.Adam([self.generator.change], lr=5e-3)
 
             image = image.to(self.device)
             target = target.to(self.device)
