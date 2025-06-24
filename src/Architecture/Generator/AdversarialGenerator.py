@@ -13,11 +13,12 @@ from .ChangeGenerator import ChangeGenerator
 
 class AdversarialGenerator(ChangeGenerator):
     """Uses an Adversarial to ensure the image stays in the image domain."""
+
     def __init__(self, model: nn.Module,
-                 image_shape: Sequence[int],
+                 image: torch.tensor,
                  loss: nn.Module = MaskedCrossEntropyLoss(),
                  alpha: float = 1.0):
-        super().__init__(model, image_shape, loss, alpha)
+        super().__init__(model, image.shape, loss, alpha)
 
         self.adversarial = torch.nn.Sequential(
             BasicUNet(in_channels=2,
@@ -28,14 +29,18 @@ class AdversarialGenerator(ChangeGenerator):
         )
         self.adversarial.eval()
 
+        with torch.no_grad():
+            self.init_pred: torch.Tensor = self.adversarial(image)
+            self.init_pred.requires_grad = False
+
     def adapt(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # calc updated image
         new_input = image + self.change
 
         # cost are the predicted change by the adversarial
         if self.alpha != 0.0:
-            pred = self.adversarial(new_input)
-            cost = torch.mean(pred)
+            pred = self.adversarial(new_input) - self.init_pred
+            cost = torch.mean(torch.abs(pred))
         else:
             cost = torch.tensor(0.0, device=image.device)
 
