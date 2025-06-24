@@ -5,7 +5,7 @@ from tqdm import trange
 from src.utils import get_image
 
 
-def denoise(image: torch.Tensor, alpha: float =.01) -> torch.Tensor:
+def denoise(image: torch.Tensor, noise, alpha: float =.01) -> torch.Tensor:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -13,15 +13,36 @@ def denoise(image: torch.Tensor, alpha: float =.01) -> torch.Tensor:
                       out_channels=2,
                       spatial_dims=2,
                       features=(64, 128, 256, 512, 1024, 128))
-    model.load_state_dict(torch.load("models/34_test_adversarial.pth"))
+    model.load_state_dict(torch.load("models/23_test_denoiser.pth", map_location=device))
     model.to(device)
     image = image.to(device)
 
-    model.eval()
     with torch.no_grad():
-        for _ in trange(100):
-            pred = model(image)
+        init_pred = model(image)
+
+    plt.figure(figsize=(5, 5))
+    plt.title("Original image prediction")
+    plt.imshow(init_pred[0, 0], cmap='RdBu')
+    plt.axis('off')
+    plt.savefig('init_pred.png', dpi=750)
+    plt.close()
+
+    image += noise
+
+    model.eval()
+    change = []
+    with torch.no_grad():
+        bar = trange(500)
+        for _ in bar:
+            pred = model(image) - init_pred
             image -= alpha * pred
+
+            change.append(torch.abs(pred).sum())
+            bar.set_description(f"change: {change[-1]}")
+
+    plt.plot(change)
+    plt.tight_layout()
+    plt.savefig('change_curve.png', dpi=750)
 
     return image.cpu()
 
@@ -31,15 +52,14 @@ if __name__ == "__main__":
 
     image, _ = get_image('data/Dataset101_fcd/sub-00003', 2)
 
-    image = image
-    noise = torch.randn_like(image)
+    noise = torch.randn_like(image) * 0.1
 
-    reconstruction = denoise(image + noise)
+    reconstruction = denoise(image.clone(), noise)
 
     print(f"noise applied: {torch.abs(noise).sum()}")
     print(f"noise left: {torch.abs(image - reconstruction).sum()}")
 
-    plt.figure(figsize=(10, 15))
+    plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)
     plt.title("Original image")
     plt.imshow(image[0, 0], cmap='gray')
@@ -55,4 +75,6 @@ if __name__ == "__main__":
     plt.imshow(reconstruction[0, 0], cmap='gray')
     plt.axis('off')
 
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(f"denoise_result.png", dpi=750)
+    plt.close()
