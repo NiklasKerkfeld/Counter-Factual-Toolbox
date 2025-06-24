@@ -7,6 +7,7 @@ from monai.networks.nets import BasicUNet
 
 from matplotlib import pyplot as plt
 
+from src.Architecture.CustomLayer import GaussianBlurLayer
 from ..LossFunctions import MaskedCrossEntropyLoss
 from .ChangeGenerator import ChangeGenerator
 
@@ -16,9 +17,11 @@ class AdversarialGenerator(ChangeGenerator):
 
     def __init__(self, model: nn.Module,
                  image: torch.tensor,
+                 target: torch.tensor,
+                 name: str = "AdversarialGenerator",
                  loss: nn.Module = MaskedCrossEntropyLoss(),
                  alpha: float = 1.0):
-        super().__init__(model, image.shape, loss, alpha)
+        super().__init__(model, image, target, name, loss, alpha)
 
         self.adversarial = torch.nn.Sequential(
             BasicUNet(in_channels=2,
@@ -30,53 +33,48 @@ class AdversarialGenerator(ChangeGenerator):
         self.adversarial.eval()
 
         with torch.no_grad():
-            self.init_pred: torch.Tensor = self.adversarial(image)
-            self.init_pred.requires_grad = False
+            init_pred: torch.Tensor = self.adversarial(image)
+            self.register_buffer('init_pred', init_pred.float())
 
-    def adapt(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def adapt(self) -> Tuple[torch.Tensor, torch.Tensor]:
         # calc updated image
-        new_input = image + self.change
+        new_input = self.image + self.change
 
         # cost are the predicted change by the adversarial
         if self.alpha != 0.0:
             pred = self.adversarial(new_input) - self.init_pred
             cost = torch.mean(torch.abs(pred))
         else:
-            cost = torch.tensor(0.0, device=image.device)
+            cost = torch.tensor(0.0, device=self.image.device)
 
-        self.mean_changes.append(torch.abs(self.change).mean().detach().cpu())
+        self.mean_changes.append(torch.abs(self.parameter).mean().detach().cpu())
         return new_input, cost
 
     def load_adversarial(self, name='adversarial'):
         self.adversarial.load_state_dict(
-            torch.load(f"models/{name}.pth", map_location=self.change.device))
+            torch.load(f"models/{name}.pth", map_location=self.parameter.device))
 
     def log_and_visualize(self,
-                          image: torch.Tensor,
-                          target: torch.Tensor,
-                          name: str = 'generate',
                           method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
-        super().log_and_visualize(image, target, name, method)
+        super().log_and_visualize(method)
 
-        input_image, cost = self.adapt(image)
+        input_image, cost = self.adapt()
         predicted = self.adversarial(input_image)[0].detach().cpu().numpy()
-        predicted *= torch.sign(self.change[0]).detach().cpu().numpy()
+        predicted *= torch.sign(self.parameter[0]).detach().cpu().numpy()
 
-        change = self.change[0].detach().cpu().numpy()
+        change = self.parameter[0].detach().cpu().numpy()
 
-        self.save_images(name,
-                         predicted_change_t1w=predicted[0],
+        self.save_images(predicted_change_t1w=predicted[0],
                          cmap='bwr',
                          norm=self.t1w_change_norm)
 
-        self.save_images(name,
-                         predicted_change_flair=predicted[1],
+        self.save_images(predicted_change_flair=predicted[1],
                          cmap='bwr',
                          norm=self.flair_change_norm)
 
-        self.plot_adversarial_prediction(change, name, predicted)
+        self.plot_adversarial_prediction(change, predicted)
 
-    def plot_adversarial_prediction(self, change, name, predicted):
+    def plot_adversarial_prediction(self, change, predicted):
         plt.figure(figsize=(10, 10))
         plt.subplot(2, 2, 1)
         plt.title("predicted Change - tw1")
@@ -95,52 +93,6 @@ class AdversarialGenerator(ChangeGenerator):
         plt.imshow(change[1], cmap='bwr', norm=self.flair_change_norm)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f"Results/{name}/AdversarialPrediction.png", dpi=750)
+        plt.savefig(f"Results/{self.name}/AdversarialPrediction.png", dpi=750)
         plt.close()
-        print(f"Adversarial prediction saved to Results/{name}/AdversarialPrediction.png")
-
-
-if __name__ == '__main__':
-    from src.utils import get_network, load_image, get_max_slice
-
-    model = get_network(configuration='2d', fold=0)
-    generator = AdversarialGenerator(model, (256, 256))
-    generator.load_adversarial('adversarial')
-
-    item = load_image('data/Dataset101_fcd/sub-00003')
-
-    slice_idx, size = get_max_slice(item['target'], 2 + 1)
-    print(f"selected slice: {slice_idx} with a target size of {size} pixels.")
-
-    image = item['tensor'].select(2 + 1, slice_idx)[None]
-    noise = torch.randn(image.shape) * 0.001
-    image += noise
-    target = item['target'].select(2 + 1, slice_idx)
-
-    out = generator.adversarial(image).detach().cpu().numpy()
-    removed = image - out * torch.sign(noise).numpy()
-
-    plt.figure(figsize=(10, 10))
-    plt.subplot(2, 2, 1)
-    plt.title("tw1")
-    plt.imshow(out[0, 0], cmap='gray')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 2)
-    plt.title("flair")
-    plt.imshow(out[0, 1], cmap='gray')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 3)
-    plt.title("tw1")
-    plt.imshow(removed[0, 0], cmap='gray')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 4)
-    plt.title("flair")
-    plt.imshow(removed[0, 1], cmap='gray')
-    plt.axis('off')
-
-    plt.tight_layout()
-    plt.savefig(f"Adversarial.png", dpi=500)
-    plt.close()
+        print(f"Adversarial prediction saved to Results/{self.name}/AdversarialPrediction.png")

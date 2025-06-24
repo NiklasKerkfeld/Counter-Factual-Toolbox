@@ -31,7 +31,7 @@ class DifferenceAdversarialGenerator(AdversarialGenerator):
 
     def adapt(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # calc updated image
-        new_input = image + self.change
+        new_input = image + self.parameter
 
         # cost are the predicted change by the adversarial
         if self.alpha != 0.0:
@@ -45,11 +45,11 @@ class DifferenceAdversarialGenerator(AdversarialGenerator):
             cost += self.beta * dist_loss
             self.distance_loss_list.append(dist_loss)
 
-        self.mean_changes.append(torch.abs(self.change).mean().detach().cpu())
+        self.mean_changes.append(torch.abs(self.parameter).mean().detach().cpu())
         return new_input, cost
 
     def distance_cost(self):
-        return torch.sum(torch.tensor([self.distance_loss(self.change, change) for change in self.change_list]))
+        return torch.sum(torch.tensor([self.distance_loss(self.parameter, change) for change in self.change_list]))
 
     def log_and_visualize(self,
                           image: torch.Tensor,
@@ -58,7 +58,7 @@ class DifferenceAdversarialGenerator(AdversarialGenerator):
                           method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         super().log_and_visualize(image, target, name, method)
 
-        change = self.change[0].detach().cpu().numpy()
+        change = self.parameter[0].detach().cpu().numpy()
         result = ""
         for i, alt_change in enumerate(self.change_list):
             alt_change = alt_change.detach().cpu().numpy()

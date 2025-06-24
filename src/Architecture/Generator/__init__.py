@@ -3,7 +3,7 @@ from src.Architecture.Generator.DifferenceAdversarialGenerator import Difference
 from src.Architecture.Generator.AffineGenerator import AffineGenerator
 from src.Architecture.Generator.ChangeGenerator import ChangeGenerator
 from src.Architecture.Generator.ComposeGenerator import ComposeGenerator
-from src.Architecture.Generator.DeformationGenerator import ElasticDeformation2D, ElasticDeformation3D
+from src.Architecture.Generator.DeformationGenerator import ElasticDeformation
 from src.Architecture.Generator.ShiftAndScaleGenerator import ShiftGenerator, ScaleGenerator, ScaleAndShiftGenerator
 
 __all__ = [
@@ -11,8 +11,7 @@ __all__ = [
     "AffineGenerator",
     "ChangeGenerator",
     "ComposeGenerator",
-    "ElasticDeformation2D",
-    "ElasticDeformation3D",
+    "ElasticDeformation",
     "ScaleAndShiftGenerator",
     "ShiftGenerator",
     "ScaleGenerator",

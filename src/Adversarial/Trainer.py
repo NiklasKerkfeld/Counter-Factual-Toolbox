@@ -106,7 +106,7 @@ class Trainer:
         bar = tqdm(self.dataloader_gen, desc='generating')
         for idx, (image, target, _) in enumerate(bar):
             self.generator.reset()
-            optimizer = torch.optim.Adam([self.generator.change], lr=5e-3)
+            optimizer = torch.optim.Adam([self.generator.parameter], lr=5e-3)
 
             image = image.to(self.device)
             target = target.to(self.device)
@@ -118,7 +118,7 @@ class Trainer:
                 optimizer.step()
 
             # save generated change in dataset
-            change = self.generator.change.data.cpu()
+            change = self.generator.parameter.data.cpu()
             for i in range(self.batch_size):
                 self.dataset[idx * self.batch_size + i][2].copy_(change[i])
 

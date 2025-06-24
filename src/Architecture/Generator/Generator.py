@@ -26,7 +26,11 @@ from src.utils import normalize, intersection_over_union
 class Generator(nn.Module):
     """Super class for image adaption."""
 
-    def __init__(self, model: nn.Module,
+    def __init__(self,
+                 model: nn.Module,
+                 image: torch.Tensor,
+                 target: torch.Tensor,
+                 name: str = 'Generator',
                  loss=MaskedCrossEntropyLoss(),
                  alpha: float = 1.0):
         """
@@ -38,8 +42,10 @@ class Generator(nn.Module):
         """
         super().__init__()
         self.model = model
-        self.alpha = alpha
+        self.register_buffer('image', image)
+        self.register_buffer('target', target)
         self.loss = loss
+        self.alpha = alpha
 
         self.model.eval()
 
@@ -50,52 +56,45 @@ class Generator(nn.Module):
         self.t1w_norm = Normalize()
         self.flair_norm = Normalize()
 
-    def generate(self, image, optimizer, steps, target):
+    def generate(self, optimizer, steps):
         print("starting process...")
         bar = trange(steps, desc='generating...')
         for _ in bar:
             optimizer.zero_grad()
-            loss = self(image, target)
+            loss = self()
             loss.backward()
             optimizer.step()
 
             bar.set_description(f"loss: {loss.detach().cpu().item()}")
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward path for generation.
 
         Adopts image with adopt function. Then calculates prediction with loss and add them with the
         cost of the adoption.
 
-        Args:
-            input: input tensor
-            target: target tensor
-
         Returns:
             over all loss
         """
-        image, cost = self.adapt(input)
+        image, cost = self.adapt()
         output = self.model(image)
-        loss = self.loss(output, target)
+        loss = self.loss(output, self.target)
 
         self.losses.append(loss.detach().cpu())
         self.costs.append(cost.detach().cpu())
 
         return loss + self.alpha * cost
 
-    def adapt(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def adapt(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Adapts the image and returns it together with the cost of the adaption.
-
-        Args:
-            input: input tensor
 
         Returns:
             the adapted image and the cost of that adaption.
         """
         warnings.warn("Warning: You executed the dummy adapt function of the Generator super class!")
-        return input, torch.tensor(0.0).to(input.device)
+        return self.imagew, torch.tensor(0.0).to(self.image.device)
 
     def reset(self):
         """Resets all parameters so a new image can be generated."""
@@ -103,51 +102,48 @@ class Generator(nn.Module):
         self.costs = []
 
     def log_and_visualize(self,
-                          image: torch.Tensor,
-                          target: torch.Tensor,
-                          name: str = 'generate',
                           method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         """Visualizes the results."""
-        os.makedirs(f"Results/{name}", exist_ok=True)
+        os.makedirs(f"Results/{self.name}", exist_ok=True)
 
-        new_image, original_prediction, deformed_prediction = self.generate_results(image, name, target)
+        new_image, original_prediction, deformed_prediction = self.generate_results()
 
         # get norms to ensure same normalization in images
-        self.get_norm(image, new_image)
+        self.get_norm(new_image)
 
         # plot Grad Cam maps
-        self.generate_gradcam(image, method, name, new_image)
+        self.generate_gradcam(method, new_image)
 
         # move everything to cpu and numpy
-        image = image[0].detach().cpu().numpy()
+        image = self.image[0].detach().cpu().numpy()
         new_image = new_image[0].detach().cpu().numpy()
         original_prediction = original_prediction.detach().cpu().numpy()
         deformed_prediction = deformed_prediction.detach().cpu().numpy()
-        target = target.detach().cpu().numpy()
+        target = self.target.detach().cpu().numpy()
 
-        self.plot_generation_curves(name)
+        self.plot_generation_curves()
 
         # save images
-        self.save_images(name, original_t1w=image[0], adapted_t1w=new_image[0], norm=self.t1w_norm)
-        self.save_images(name, original_flair=image[1], adapted_flair=new_image[1], norm=self.flair_norm)
-        self.save_images(name, original_target=target[0], original_prediction=original_prediction, adapted_prediction=deformed_prediction)
+        self.save_images(original_t1w=image[0], adapted_t1w=new_image[0], norm=self.t1w_norm)
+        self.save_images(original_flair=image[1], adapted_flair=new_image[1], norm=self.flair_norm)
+        self.save_images(original_target=target[0], original_prediction=original_prediction, adapted_prediction=deformed_prediction)
 
         # plot overview
-        self.plot_overview(image, new_image, target, original_prediction, deformed_prediction, name)
-        self.create_gif_of_adaption(image[0], new_image[0], self.t1w_norm, name, 't1w')
-        self.create_gif_of_adaption(image[1], new_image[1], self.flair_norm, name, 'flair')
+        self.plot_overview(image, target, new_image, original_prediction, deformed_prediction)
+        self.create_gif_of_adaption(image[0], new_image[0], self.t1w_norm, 't1w')
+        self.create_gif_of_adaption(image[1], new_image[1], self.flair_norm, 'flair')
 
-    def generate_results(self, image: torch.Tensor, name, target: torch.Tensor):
+    def generate_results(self):
         loss_fn = CrossEntropyLoss()
         with torch.no_grad():
-            new_image, cost = self.adapt(image)
-            original_prediction = self.model(image)
+            new_image, cost = self.adapt()
+            original_prediction = self.model(self.image)
             deformed_prediction = self.model(new_image)
 
-            original_loss = loss_fn(original_prediction, target)
-            deformed_loss = loss_fn(deformed_prediction, target)
-            original_iou = intersection_over_union(torch.argmax(original_prediction, dim=1), target)
-            deformed_iou = intersection_over_union(torch.argmax(deformed_prediction, dim=1), target)
+            original_loss = loss_fn(original_prediction, self.target)
+            deformed_loss = loss_fn(deformed_prediction, self.target)
+            original_iou = intersection_over_union(torch.argmax(original_prediction, dim=1), self.target)
+            deformed_iou = intersection_over_union(torch.argmax(deformed_prediction, dim=1), self.target)
 
             original_prediction = F.softmax(original_prediction, dim=1)[0, 1].cpu()
             deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
@@ -155,39 +151,38 @@ class Generator(nn.Module):
                   f"Adaption cost: {cost}\n"
                   f"IoU: {original_iou} --> {deformed_iou}")
         print(result)
-        with open(f"Results/{name}/results.txt", "x") as f:
+        with open(f"Results/{self.name}/results.txt", "x") as f:
             f.write(result)
         return new_image, original_prediction, deformed_prediction
 
-    def get_norm(self, image: torch.Tensor, new_image: torch.Tensor):
-        t1w_min = min(torch.min(image[0, 0]).item(), torch.min(new_image[0, 0]).item())
-        t1w_max = max(torch.max(image[0, 0]).item(), torch.max(new_image[0, 0]).item())
+    def get_norm(self, new_image):
+        t1w_min = min(torch.min(self.image[0, 0]).item(), torch.min(new_image[0, 0]).item())
+        t1w_max = max(torch.max(self.image[0, 0]).item(), torch.max(new_image[0, 0]).item())
         self.t1w_norm = Normalize(t1w_min, t1w_max)
 
-        flair_min = min(torch.min(image[0, 1]).item(), torch.min(new_image[0, 1]).item())
-        flair_max = max(torch.max(image[0, 1]).item(), torch.max(new_image[0, 1]).item())
+        flair_min = min(torch.min(self.image[0, 1]).item(), torch.min(new_image[0, 1]).item())
+        flair_max = max(torch.max(self.image[0, 1]).item(), torch.max(new_image[0, 1]).item())
         self.flair_norm = Normalize(flair_min, flair_max)
 
 
     def plot_overview(self,
                       image: torch.Tensor,
-                      new_image: torch.Tensor,
                       target: torch.Tensor,
+                      new_image: torch.Tensor,
                       original_prediction: torch.Tensor,
                       deformed_prediction: torch.Tensor,
-                      name: str
                       ):
         plt.figure(figsize=(12, 10))
-        self.plot_visualization(image, new_image)
-        self.plot_original(image)
+        self.plot_visualization(new_image)
+        self.plot_original(image,)
         self.plot_modified(new_image)
         self.plot_results(image, target, new_image, original_prediction, deformed_prediction)
         plt.tight_layout()
-        plt.savefig(f"Results/{name}/overview.png", dpi=750)
+        plt.savefig(f"Results/{self.name}/overview.png", dpi=750)
         plt.close()
-        print(f"Overview of the results saved to Results/{name}/overview.png")
+        print(f"Overview of the results saved to Results/{self.name}/overview.png")
 
-    def plot_visualization(self, image: torch.Tensor, new_image: torch.Tensor):
+    def plot_visualization(self, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
         plt.title("Dummy")
         plt.axis('off')
@@ -245,14 +240,14 @@ class Generator(nn.Module):
             axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
         plt.axis('off')
 
-    def generate_gradcam(self, image: torch.Tensor, method, name, new_image: torch.Tensor):
+    def generate_gradcam(self, method, new_image: torch.Tensor):
         plt.figure(figsize=(10, 10))
-        self.plot_activation_map(image, 1, method)
+        self.plot_activation_map(self.image, 1, method)
         self.plot_activation_map(new_image, 2, method)
         plt.tight_layout()
-        plt.savefig(f"Results/{name}/GradCam.png", dpi=750)
+        plt.savefig(f"Results/{self.name}/GradCam.png", dpi=750)
         plt.close()
-        print(f"Grad-Cam image of the results saved to Results/{name}/GradCam.png")
+        print(f"Grad-Cam image of the results saved to Results/{self.name}/GradCam.png")
 
     def plot_activation_map(self, image, i, method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
         image = image.clone()
@@ -270,7 +265,7 @@ class Generator(nn.Module):
         plt.imshow(cam_image, cmap='gray')
         plt.axis('off')
 
-    def save_images(self, name: str, cmap: str = 'gray', norm: Optional[Normalize] = None, **kwargs: torch.Tensor):
+    def save_images(self, cmap: str = 'gray', norm: Optional[Normalize] = None, **kwargs: torch.Tensor):
         for key, image in kwargs.items():
             for i in range(2):
                 plt.figure()  # Ensure a new figure is created for each image
@@ -279,11 +274,11 @@ class Generator(nn.Module):
                 if i == 1:
                     plt.colorbar(im, fraction=0.046, pad=0.04)  # Add colorbar
                 plt.tight_layout()
-                plt.savefig(f"Results/{name}/{key}{'_colorbar' if i == 1 else ''}.png", bbox_inches='tight', pad_inches=0)
+                plt.savefig(f"Results/{self.name}/{key}{'_colorbar' if i == 1 else ''}.png", bbox_inches='tight', pad_inches=0)
                 plt.close()  # Close the figure to free memory
-                print(f"{key} saved to Results/{name}/{key}{'_colorbar' if i == 1 else ''}.png")
+                print(f"{key} saved to Results/{self.name}/{key}{'_colorbar' if i == 1 else ''}.png")
 
-    def plot_generation_curves(self, name: str):
+    def plot_generation_curves(self):
         losses = np.array(self.losses)
         costs = np.array(self.costs)
 
@@ -297,25 +292,25 @@ class Generator(nn.Module):
         plt.ylabel('loss')
         plt.legend()
         plt.title('Loss over generation process')
-        plt.savefig(f"Results/{name}/loss_curve.png", dpi=750)
+        plt.savefig(f"Results/{self.name}/loss_curve.png", dpi=750)
         plt.close()  # Close the figure to free memory
 
-        print(f"Plot with loss and cost curves of the results saved to Results/{name}/loss_curve.png")
+        print(f"Plot with loss and cost curves of the results saved to Results/{self.name}/loss_curve.png")
 
-        with open(f"Results/{name}/loss_curves.csv", mode='w', newline='') as file:
+        with open(f"Results/{self.name}/loss_curves.csv", mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['step', 'loss', 'cost'])  # Header
             writer.writerows([(i, x, y) for i, x, y in zip(np.arange(1, len(losses)+1), losses, costs)])
 
 
 
-    def create_gif_of_adaption(self, original_image: torch.Tensor, adapted_image: torch.Tensor, norm: Normalize, name: str, sequence: str):
+    def create_gif_of_adaption(self, original_image: torch.Tensor, adapted_image: torch.Tensor, norm: Normalize, sequence: str):
         """
         Creates an animated GIF from two numpy array images.
 
         Parameters:
-        - original_image: original image as a NumPy array.
-        - adapted_image: adapted image as a NumPy array.
+        - original_image: original image
+        - adapted_image: adapted image
         - name: Name of the generation run.
         - sequence: Name of the sequence.
         """
@@ -324,11 +319,11 @@ class Generator(nn.Module):
 
         # Save as GIF
         original_image.save(
-            f"Results/{name}/modification_{sequence}.gif",
+            f"Results/{self.name}/modification_{sequence}.gif",
             save_all=True,
             append_images=[adapted_image],
             duration=500,
             loop=0  # loop forever
         )
-        print(f"Gif of {sequence} adaption saved to Results/{name}/modification_{sequence}.gif")
+        print(f"Gif of {sequence} adaption saved to Results/{self.name}/modification_{sequence}.gif")
 
