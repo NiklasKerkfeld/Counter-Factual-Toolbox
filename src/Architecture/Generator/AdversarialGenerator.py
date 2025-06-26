@@ -6,10 +6,10 @@ from torch import nn
 from monai.networks.nets import BasicUNet
 
 from matplotlib import pyplot as plt
+from tqdm import trange
 
-from src.Architecture.CustomLayer import GaussianBlurLayer
 from ..LossFunctions import MaskedCrossEntropyLoss
-from .ChangeGenerator import ChangeGenerator
+from .RegularizedChangeGenerator import ChangeGenerator
 
 
 class AdversarialGenerator(ChangeGenerator):
@@ -23,13 +23,10 @@ class AdversarialGenerator(ChangeGenerator):
                  alpha: float = 1.0):
         super().__init__(model, image, target, name, loss, alpha)
 
-        self.adversarial = torch.nn.Sequential(
-            BasicUNet(in_channels=2,
-                      out_channels=2,
-                      spatial_dims=2,
-                      features=(64, 128, 256, 512, 1024, 128)),
-            nn.ReLU()
-        )
+        self.adversarial = BasicUNet(in_channels=2,
+                                     out_channels=2,
+                                     spatial_dims=2,
+                                     features=(64, 128, 256, 512, 1024, 128))
         self.adversarial.eval()
 
         with torch.no_grad():

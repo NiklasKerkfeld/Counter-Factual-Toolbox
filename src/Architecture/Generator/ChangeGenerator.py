@@ -1,5 +1,6 @@
 """Classes for free pixel value change."""
 import csv
+import warnings
 from typing import Tuple, Literal, List
 
 import numpy as np
@@ -8,7 +9,6 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import TwoSlopeNorm, Normalize
 from torch import nn
 
-from ..CustomLayer import GaussianBlurLayer
 from ..LossFunctions import MaskedCrossEntropyLoss
 from .Generator import Generator
 
@@ -20,11 +20,9 @@ class ChangeGenerator(Generator):
                  target: torch.Tensor,
                  name: str = 'ChangeGenerator',
                  loss: nn.Module = MaskedCrossEntropyLoss(),
-                 alpha: float = 1.0,
-                 kernel_size: int = 3,
-                 sigma: float = 1.0):
+                 alpha: float = 1.0):
         """
-        Classes for free pixel value change.
+        Super Class for bias field based Classes.
 
         Args:
             model: model used for prediction
@@ -33,9 +31,7 @@ class ChangeGenerator(Generator):
             alpha: weight of the adaption cost in comparison to the prediction loss
         """
         super().__init__(model, image, target, name, loss, alpha)
-
         self.parameter = nn.Parameter(torch.zeros(*self.image.shape))
-        self.smooth = GaussianBlurLayer(kernel_size=kernel_size, sigma=sigma)
 
         # logging
         self.mean_changes: List[float] = []
@@ -44,11 +40,13 @@ class ChangeGenerator(Generator):
 
     @property
     def change(self):
-        return self.smooth(self.parameter)
+        return self.parameter
+
 
     def adapt(self) -> Tuple[torch.Tensor, torch.Tensor]:
-        cost = torch.mean(torch.abs(self.parameter))
-        return self.image + self.change, cost
+        warnings.warn(
+            "Warning: You executed the dummy adapt function of the ChangeGenerator super class!")
+        return self.image + self.change, torch.tensor(0.0, device=self.image.device)
 
     def reset(self):
         super().reset()
@@ -70,6 +68,8 @@ class ChangeGenerator(Generator):
         self.save_images(bias_map_flair=change[1],
                          cmap='bwr',
                          norm=self.flair_change_norm)
+
+        self.plot_change_on_image(change)
 
     def plot_visualization(self, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
@@ -118,3 +118,21 @@ class ChangeGenerator(Generator):
         flair_extremest = max(-t1w_min, t1w_max) / 10
         self.flair_norm = Normalize(flair_min, flair_max)
         self.flair_change_norm = TwoSlopeNorm(0.0, -flair_extremest, flair_extremest)
+
+    def plot_change_on_image(self, change: np.ndarray):
+        alpha = np.abs(change)
+        alpha = alpha / alpha.max()
+
+        plt.title("Change - t1w")
+        plt.imshow(self.image[0, 0].detach().cpu(), cmap='gray', norm=self.t1w_norm)
+        plt.imshow(change[0], cmap='bwr', alpha=alpha[0], norm=self.t1w_change_norm)
+        plt.axis('off')
+        plt.savefig(f"Results/{self.name}/change_on_image_t1w.png", dpi=750)
+        plt.close()  # Close the figure to free memory
+
+        plt.title("Change - FLAIR")
+        plt.imshow(self.image[0, 1].detach().cpu(), cmap='gray', norm=self.flair_norm)
+        plt.imshow(change[1], cmap='bwr', alpha=alpha[1], norm=self.flair_change_norm)
+        plt.axis('off')
+        plt.savefig(f"Results/{self.name}/change_on_image_flair.png", dpi=750)
+        plt.close()  # Close the figure to free memory
