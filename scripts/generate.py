@@ -3,13 +3,12 @@ import glob
 import torch
 
 from src.utils import get_network, get_image
-from src.Architecture.Generator import (ChangeGenerator,
+from src.Architecture.Generator import (SmoothChangeGenerator,
+                                        RegularizedChangeGenerator,
                                         ElasticDeformation,
-                                        AffineGenerator,
                                         AdversarialGenerator,
-                                        DifferenceAdversarialGenerator,
-                                        ScaleAndShiftGenerator,
-                                        AffineGenerator)
+                                        DetectionAdversarialGenerator,
+                                        DifferenceAdversarialGenerator)
 
 if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -18,21 +17,22 @@ if __name__ == '__main__':
     model = get_network(configuration='2d', fold=0)
     image, target = get_image('data/Dataset101_fcd/sub-00003', 2)
 
-    # generator = ScaleAndShiftGenerator(model, (1, 2, 160, 256), loss=loss, alpha=.001)
-    # optimizer = torch.optim.Adam([generator.scale, generator.shift], lr=1e-3)
+    # generator = ElasticDeformation(model, image, target)
+    # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
 
-    # generator = AffineGenerator(model, loss=loss, alpha=.001)
-    # optimizer = torch.optim.Adam([generator.change], lr=1e-3)
+    generator = SmoothChangeGenerator(model, image, target, alpha=1.0, kernel_size=9, sigma=2)
+    optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
-    generator = ElasticDeformation(model, image, target)
-    optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
-
-    # generator = ChangeGenerator(model, image, target, alpha=1.0, kernel_size=9, sigma=2)
+    # generator = RegularizedChangeGenerator(model, image, target, alpha=1.0, beta=1.0)
     # optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     # generator = AdversarialGenerator(model, image, target, alpha=1.0)
     # generator.load_adversarial("23_test_adversarial")
-    # optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+    # optimizer = torch.optim.Adam([generator.parameter], lr=1e-3)
+
+    # generator = DetectionAdversarialGenerator(model, image, target, alpha=1.0)
+    # generator.load_adversarial("23_test_denoiser")
+    # optimizer = torch.optim.Adam([generator.parameter], lr=1e-3)
 
     # change_list = [torch.load("Results/69_AdversarialGenerator/bias_map.pt")]
     # generator = DifferenceAdversarialGenerator(model, (1, 2, 160, 256), change_list=change_list, alpha=10.0)
