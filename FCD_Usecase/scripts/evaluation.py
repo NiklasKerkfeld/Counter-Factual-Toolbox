@@ -69,8 +69,8 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
 
     new_image, _ = generator.adapt()
 
-    prediction = model(image)
-    new_prediction = model(new_image)
+    prediction = model(image)[:, 1] > .5
+    new_prediction = model(new_image)[:, 1] > .5
 
     return new_image, prediction, new_prediction
 
@@ -78,9 +78,9 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
 def eval(name: str, slice: str, image, target, new_image, prediction, new_prediction):
     iou_before = intersection_over_union(prediction, target)
     iou_after = intersection_over_union(new_prediction, target)
-    pred_size = torch.sum(prediction[:, 1] > .5).item()
-    new_pred_size = torch.sum(new_prediction[:, 1] > .5).item()
-    target_size = torch.sum(target[:, 1] > .5).item()
+    pred_size = torch.sum(prediction).item()
+    new_pred_size = torch.sum(new_prediction).item()
+    target_size = torch.sum(target).item()
     change = torch.sum(torch.abs(image - new_image)).item()
 
     # Define the output file path
