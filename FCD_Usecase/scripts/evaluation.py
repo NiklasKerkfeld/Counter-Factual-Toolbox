@@ -67,7 +67,7 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
 
     generator.generate(optimizer, 100)
 
-    new_image = generator.adapt()
+    new_image, _ = generator.adapt()
 
     prediction = model(image)
     new_prediction = model(new_image)
