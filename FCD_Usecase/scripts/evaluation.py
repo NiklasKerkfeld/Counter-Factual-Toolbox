@@ -120,14 +120,11 @@ def main():
     dataset = Dataset2D("data/Dataset101_fcd")
 
     for patient, i, image, target in dataset:
-        print(image.shape, patient, i, target.shape)
+        image = image.to(device)
+        target = target.to(device)
         new_image, prediction, new_prediction = generate(model, image[None], target[None], device)
         eval(patient, i, image, target, new_image, prediction, new_prediction)
 
-
-
-
-    
    
 if __name__ == '__main__':
     main()
