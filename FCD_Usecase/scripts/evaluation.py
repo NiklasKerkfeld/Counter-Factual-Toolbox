@@ -76,8 +76,8 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
 
 
 def eval(name: str, slice: str, image, target, new_image, prediction, new_prediction):
-    iou_before = intersection_over_union(prediction, target)
-    iou_after = intersection_over_union(new_prediction, target)
+    iou_before = intersection_over_union(prediction, target).item()
+    iou_after = intersection_over_union(new_prediction, target).item()
     pred_size = torch.sum(prediction).item()
     new_pred_size = torch.sum(new_prediction).item()
     target_size = torch.sum(target).item()
