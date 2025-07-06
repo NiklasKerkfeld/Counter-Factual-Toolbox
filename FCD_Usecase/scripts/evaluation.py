@@ -117,7 +117,7 @@ def main():
     print(f"Using device: {device}")
 
     model = get_network(configuration='2d', fold=0)
-    dataset = Dataset2D("FCD_Usecase/results/*")
+    dataset = Dataset2D("data/Dataset101_fcd")
 
     for patient, i, image, target in dataset:
         new_image, prediction, new_prediction = generate(model, image, target, device)
