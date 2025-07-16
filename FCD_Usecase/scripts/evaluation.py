@@ -60,6 +60,11 @@ class Dataset2D(Dataset):
 
 
 def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device: torch.device):
+    prediction = model(image)[:, 1] > .5
+
+    if prediction.sum() == 0.0 and target.sum() == 0.0:
+        return None, None, None
+
     generator = DeformationGenerator(model, image, target, alpha=1.0)
     optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
@@ -70,7 +75,6 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
 
     new_image, _ = generator.adapt()
 
-    prediction = model(image)[:, 1] > .5
     new_prediction = model(new_image)[:, 1] > .5
 
     return new_image, prediction, new_prediction
@@ -128,6 +132,8 @@ def main():
         image = image.to(device)
         target = target.to(device)
         new_image, prediction, new_prediction = generate(model, image[None], target[None], device)
+        if new_image is None:
+            continue
         eval(patient, i, output_file, image, target, new_image, prediction, new_prediction)
 
 
