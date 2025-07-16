@@ -7,7 +7,7 @@ from torch import nn
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from CounterFactualToolbox.Generator import SmoothChangeGenerator
+from CounterFactualToolbox.Generator import SmoothChangeGenerator, DeformationGenerator
 from FCD_Usecase.scripts.utils.utils import get_network, load_image, intersection_over_union
 
 exceptions = ['sub-00002',
@@ -28,7 +28,8 @@ class Dataset2D(Dataset):
         self.data = {}
         self.len = 0
 
-        for x in tqdm([x for x in sorted(glob.glob(f"{path}/sub-*"), key=lambda x: int(x[-5:])) if os.path.isdir(x)],
+        for x in tqdm([x for x in sorted(glob.glob(f"{path}/sub-*"), key=lambda x: int(x[-5:])) if
+                       os.path.isdir(x)],
                       desc='loading data'):
             patient = os.path.basename(x)
             if patient in exceptions:
@@ -59,7 +60,7 @@ class Dataset2D(Dataset):
 
 
 def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device: torch.device):
-    generator = SmoothChangeGenerator(model, image, target, alpha=1.0, kernel_size=9, sigma=2)
+    generator = DeformationGenerator(model, image, target, alpha=1.0)
     optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     generator.name = f"{len(glob.glob('FCD_Usecase/results/*'))}_{generator.__class__.__name__}"
@@ -75,16 +76,20 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
     return new_image, prediction, new_prediction
 
 
-def eval(name: str, slice: str, image, target, new_image, prediction, new_prediction):
+def eval(name: str,
+         slice: str,
+         output_file: str,
+         image: torch.Tensor,
+         target: torch.Tensor,
+         new_image: torch.Tensor,
+         prediction: torch.Tensor,
+         new_prediction: torch.Tensor):
     iou_before = intersection_over_union(prediction, target).item()
     iou_after = intersection_over_union(new_prediction, target).item()
     pred_size = torch.sum(prediction).item()
     new_pred_size = torch.sum(new_prediction).item()
     target_size = torch.sum(target).item()
     change = torch.sum(torch.abs(image - new_image)).item()
-
-    # Define the output file path
-    output_file = "results.csv"
 
     # Check if file exists to determine if we need to write the header
     file_exists = os.path.isfile(output_file)
@@ -111,20 +116,20 @@ def eval(name: str, slice: str, image, target, new_image, prediction, new_predic
         ])
 
 
-
 def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     model = get_network(configuration='2d', fold=0)
     dataset = Dataset2D("data/Dataset101_fcd")
+    output_file = "SmoothChangeGenerator_evaluation.csv"
 
     for patient, i, image, target in dataset:
         image = image.to(device)
         target = target.to(device)
         new_image, prediction, new_prediction = generate(model, image[None], target[None], device)
-        eval(patient, i, image, target, new_image, prediction, new_prediction)
+        eval(patient, i, output_file, image, target, new_image, prediction, new_prediction)
 
-   
+
 if __name__ == '__main__':
     main()
