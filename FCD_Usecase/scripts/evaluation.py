@@ -122,7 +122,7 @@ def main():
 
     model = get_network(configuration='2d', fold=0)
     dataset = Dataset2D("data/Dataset101_fcd")
-    output_file = "SmoothChangeGenerator_evaluation.csv"
+    output_file = "DeformationGenerator_evaluation.csv"
 
     for patient, i, image, target in dataset:
         image = image.to(device)
