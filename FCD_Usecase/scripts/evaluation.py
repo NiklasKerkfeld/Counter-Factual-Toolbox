@@ -71,7 +71,7 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
     generator.name = f"{len(glob.glob('FCD_Usecase/results/*'))}_{generator.__class__.__name__}"
     generator.to(device)
 
-    generator.generate(optimizer, 100)
+    generator.generate(optimizer, 100, verbose=True)
 
     new_image, _ = generator.adapt()
 

@@ -75,9 +75,10 @@ class Generator(nn.Module):
         self.t1w_norm = Normalize()
         self.flair_norm = Normalize()
 
-    def generate(self, optimizer, steps) -> None:
-        print("starting process...")
-        bar = trange(steps, desc='generating...')
+    def generate(self, optimizer, steps, verbose: bool = False) -> None:
+        if not verbose:
+            print("starting process...")
+        bar = trange(steps, desc='generating...', disable=verbose)
         for _ in bar:
             optimizer.zero_grad()
             loss = self()
