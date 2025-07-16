@@ -128,7 +128,7 @@ def main():
     dataset = Dataset2D("data/Dataset101_fcd")
     output_file = "DeformationGenerator_evaluation.csv"
 
-    for patient, i, image, target in dataset:
+    for patient, i, image, target in tqdm(dataset, desc='evaluation', total=len(dataset)):
         image = image.to(device)
         target = target.to(device)
         new_image, prediction, new_prediction = generate(model, image[None], target[None], device)
