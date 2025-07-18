@@ -124,7 +124,7 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    model = get_network(configuration='2d', fold=0)
+    model = get_network(configuration='2d', fold=0).to(device)
     dataset = Dataset2D("data/Dataset101_fcd")
     output_file = "DeformationGenerator_evaluation.csv"
 
