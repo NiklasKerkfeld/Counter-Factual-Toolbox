@@ -1,5 +1,5 @@
 """Classes for 2D and 3D Deformation"""
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Literal
 
 import numpy as np
 import torch
@@ -19,7 +19,7 @@ class DeformationGenerator(Generator):
                  name: str = "ElasticDeformation",
                  parameter_grid_shape: Tuple[int, int] = (20, 32),
                  loss: nn.Module = MaskedCrossEntropyLoss(),
-                 alpha: float = 0.1,
+                 alpha: float = 1.0,
                  previous: Optional[List[torch.Tensor]] = None,
                  beta: float = 1.0
                  ):
@@ -82,6 +82,44 @@ class DeformationGenerator(Generator):
         grid = self.grid()
         new_image = F.grid_sample(self.image, grid, padding_mode='reflection')
         return new_image, torch.mean(torch.abs(self.dx)) + torch.mean(torch.abs(self.dy))
+
+    def log_and_visualize(self, method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
+        super().log_and_visualize(method)
+
+        with torch.no_grad():
+            new_image, _ = self.adapt()
+
+        new_image = new_image[0].detach().cpu().numpy()
+        self._plot_deformation(new_image)
+
+    def _plot_deformation(self, new_image: torch.Tensor):
+        image_height, image_width = self.image[0, 0].shape
+        height, width = self.dx[0, 0].shape
+
+        X, Y = np.meshgrid(np.arange(0, image_width, image_width // width),
+                           np.arange(0, image_height, image_height // height))
+
+        plt.imshow(new_image[0], cmap='gray')
+        dx = self.dx[0, 0].detach().cpu().numpy()
+        dy = self.dy[0, 0].detach().cpu().numpy()
+        plt.quiver(X + dy, Y + dx, -dy, -dx, color='red',
+                   angles='xy', scale_units='xy', scale=1)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(f"FCD_Usecase/results/{self.name}/deformation_t1w.png", dpi=750)
+        plt.close()
+        print(f"Deformation t1w image of the results saved to FCD_Usecase/results/{self.name}/deformation_t1w.png")
+
+        plt.imshow(new_image[1], cmap='gray')
+        dx = self.dx[0, 0].detach().cpu().numpy()
+        dy = self.dy[0, 0].detach().cpu().numpy()
+        plt.quiver(X + dy, Y + dx, -dy, -dx, color='red',
+                   angles='xy', scale_units='xy', scale=1)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(f"FCD_Usecase/results/{self.name}/deformation_flair.png", dpi=750)
+        plt.close()
+        print(f"Deformation flair image of the results saved to FCD_Usecase/results/{self.name}/deformation_flair.png")
 
     def _plot_visualization(self, new_image: torch.Tensor):
         image_height, image_width = self.image[0, 0].shape

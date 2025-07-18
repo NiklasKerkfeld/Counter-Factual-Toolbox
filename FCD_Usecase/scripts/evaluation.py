@@ -4,7 +4,7 @@ import os
 
 import torch
 from torch import nn
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 from CounterFactualToolbox.Generator import SmoothChangeGenerator, DeformationGenerator
@@ -126,15 +126,16 @@ def main():
 
     model = get_network(configuration='2d', fold=0).to(device)
     dataset = Dataset2D("data/Dataset101_fcd")
+    dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False)
     output_file = "DeformationGenerator_evaluation.csv"
 
-    for patient, i, image, target in tqdm(dataset, desc='evaluation', total=len(dataset)):
+    for patient, i, image, target in tqdm(dataloader, desc='evaluation'):
         image = image.to(device)
         target = target.to(device)
-        new_image, prediction, new_prediction = generate(model, image[None], target[None], device)
+        new_image, prediction, new_prediction = generate(model, image, target, device)
         if new_image is None:
             continue
-        eval(patient, i, output_file, image, target, new_image, prediction, new_prediction)
+        eval(patient, i, output_file, image[0], target[0], new_image, prediction, new_prediction)
 
 
 if __name__ == '__main__':
