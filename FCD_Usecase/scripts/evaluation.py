@@ -88,8 +88,8 @@ def eval(name: str,
          new_image: torch.Tensor,
          prediction: torch.Tensor,
          new_prediction: torch.Tensor):
-    iou_before = intersection_over_union(prediction, target).item()
-    iou_after = intersection_over_union(new_prediction, target).item()
+    iou_before = intersection_over_union(prediction, target)
+    iou_after = intersection_over_union(new_prediction, target)
     pred_size = torch.sum(prediction).item()
     new_pred_size = torch.sum(new_prediction).item()
     target_size = torch.sum(target).item()
