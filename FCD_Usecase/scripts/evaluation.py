@@ -65,7 +65,7 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
     if prediction.sum() == 0.0 and target.sum() == 0.0:
         return None, None, None
 
-    generator = RegularizedChangeGenerator(model, image, target, alpha=5.0, omega=10.0)
+    generator = DeformationGenerator(model, image, target, alpha=5.0, omega=10.0)
     optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     generator.name = f"{len(glob.glob('FCD_Usecase/results/*'))}_{generator.__class__.__name__}"
@@ -74,7 +74,6 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
     generator.generate(optimizer, 100, verbose=True)
 
     new_image, _ = generator.adapt()
-
     new_prediction = model(new_image)[:, 1] > .5
 
     return new_image, prediction, new_prediction
@@ -127,7 +126,7 @@ def main():
     model = get_network(configuration='2d', fold=0).to(device)
     dataset = Dataset2D("data/Dataset101_fcd")
     dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False)
-    output_file = "RegularizedChangeGenerator_evaluation.csv"
+    output_file = "DeformationGenerator_evaluation.csv"
 
     for patient, i, image, target in tqdm(dataloader, desc='evaluation'):
         image = image.to(device)
@@ -135,7 +134,7 @@ def main():
         new_image, prediction, new_prediction = generate(model, image, target, device)
         if new_image is None:
             continue
-        eval(patient, i, output_file, image[0], target[0], new_image, prediction, new_prediction)
+        eval(patient[0], i.item(), output_file, image[0], target[0], new_image, prediction, new_prediction)
 
 
 if __name__ == '__main__':
