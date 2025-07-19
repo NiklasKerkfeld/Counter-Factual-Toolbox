@@ -65,7 +65,7 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
     if prediction.sum() == 0.0 and target.sum() == 0.0:
         return None, None, None
 
-    generator = DeformationGenerator(model, image, target, alpha=5.0, omega=10.0)
+    generator = DeformationGenerator(model, image, target)
     optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     generator.name = f"{len(glob.glob('FCD_Usecase/results/*'))}_{generator.__class__.__name__}"
