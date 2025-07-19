@@ -66,7 +66,7 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
         return None, None, None
 
     generator = DeformationGenerator(model, image, target)
-    optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+    optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-2)
 
     generator.name = f"{len(glob.glob('FCD_Usecase/results/*'))}_{generator.__class__.__name__}"
     generator.to(device)
