@@ -65,7 +65,7 @@ def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device
     if prediction.sum() == 0.0 and target.sum() == 0.0:
         return None, None, None
 
-    generator = SmoothChangeGenerator(model, image, target)
+    generator = RegularizedChangeGenerator(model, image, target, alpha=5, omega=10)
     optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     generator.name = f"{len(glob.glob('FCD_Usecase/results/*'))}_{generator.__class__.__name__}"
@@ -126,7 +126,7 @@ def main():
     model = get_network(configuration='2d', fold=0).to(device)
     dataset = Dataset2D("data/Dataset101_fcd")
     dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False)
-    output_file = "SmoothChangeGenerator_evaluation.csv"
+    output_file = "RegularizedChangeGenerator_evaluation.csv"
 
     for patient, i, image, target in tqdm(dataloader, desc='evaluation'):
         image = image.to(device)
