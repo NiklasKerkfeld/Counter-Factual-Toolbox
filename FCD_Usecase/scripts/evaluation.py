@@ -112,6 +112,7 @@ def eval(name: str,
          new_image: torch.Tensor,
          prediction: torch.Tensor,
          new_prediction: torch.Tensor):
+
     iou_before = intersection_over_union(prediction, target)
     iou_after = intersection_over_union(new_prediction, target)
     pred_size = torch.sum(prediction).item()
@@ -137,9 +138,13 @@ def eval(name: str,
 
         # Write the data row
         writer.writerow([
-            name, slice,
-            iou_before, iou_after,
-            pred_size, new_pred_size, target_size,
+            name,
+            slice,
+            iou_before,
+            iou_after,
+            pred_size,
+            new_pred_size,
+            target_size,
             change
         ])
 

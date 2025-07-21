@@ -44,6 +44,7 @@ class AdversarialGenerator(ChangeGenerator):
                                      spatial_dims=2,
                                      features=(64, 128, 256, 512, 1024, 128))
         self.adversarial.eval()
+        self.adversarial.to(image.device)
 
         with torch.no_grad():
             init_pred: torch.Tensor = self.adversarial(image)
