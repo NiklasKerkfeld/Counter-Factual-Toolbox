@@ -184,6 +184,6 @@ def get_args() -> argparse.Namespace:
 
 
 if __name__ == '__main__':
-    method = get_args()['method']
+    method = get_args().method
 
     main(method)
