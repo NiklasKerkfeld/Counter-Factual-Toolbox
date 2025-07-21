@@ -1,13 +1,19 @@
+import argparse
 import csv
 import glob
 import os
+import time
 
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from CounterFactualToolbox.Generator import SmoothChangeGenerator, DeformationGenerator, RegularizedChangeGenerator
+from CounterFactualToolbox.Generator import (SmoothChangeGenerator,
+                                             DeformationGenerator,
+                                             RegularizedChangeGenerator,
+                                             AdversarialGenerator,
+                                             DetectionAdversarialGenerator)
 from FCD_Usecase.scripts.utils.utils import get_network, load_image, intersection_over_union
 
 exceptions = ['sub-00002',
@@ -59,18 +65,38 @@ class Dataset2D(Dataset):
         return patient, i, image, target[0]
 
 
-def generate(model: nn.Module, image: torch.Tensor, target: torch.Tensor, device: torch.device):
+def generate(method: str, model: nn.Module, image: torch.Tensor, target: torch.Tensor, device: torch.device):
     prediction = model(image)[:, 1] > .5
 
     if prediction.sum() == 0.0 and target.sum() == 0.0:
         return None, None, None
 
-    generator = RegularizedChangeGenerator(model, image, target, alpha=5, omega=10)
-    optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+    if method == 'RegularizedChangeGenerator':
+        generator = RegularizedChangeGenerator(model, image, target, alpha=5, omega=10)
+        optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
-    generator.name = f"{len(glob.glob('FCD_Usecase/results/*'))}_{generator.__class__.__name__}"
+    elif method == 'SmoothChangeGenerator':
+        generator = SmoothChangeGenerator(model, image, target, kernel_size=9, sigma=2.0)
+        optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+
+    elif method == 'DeformationGenerator':
+        generator = DeformationGenerator(model, image, target)
+        optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+
+    elif method == 'AdversarialGenerator':
+        generator = AdversarialGenerator(model, image, target)
+        generator.load_adversarial("23_test_denoiser")
+        optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+
+    elif method == 'DetectionAdversarialGenerator':
+        generator = DetectionAdversarialGenerator(model, image, target)
+        generator.load_adversarial("23_test_denoiser")
+        optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+
+    else:
+        raise ValueError(f"{method} not found!")
+
     generator.to(device)
-
     generator.generate(optimizer, 100, verbose=True)
 
     new_image, _ = generator.adapt()
@@ -119,23 +145,45 @@ def eval(name: str,
         ])
 
 
-def main():
+def main(method: str):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     model = get_network(configuration='2d', fold=0).to(device)
     dataset = Dataset2D("data/Dataset101_fcd")
     dataloader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False)
-    output_file = "RegularizedChangeGenerator_evaluation.csv"
+    output_file = f"{method}_{time.strftime("%Y%m%d-%H%M%S")}_evaluation.csv"
 
     for patient, i, image, target in tqdm(dataloader, desc='evaluation'):
         image = image.to(device)
         target = target.to(device)
-        new_image, prediction, new_prediction = generate(model, image, target, device)
+        new_image, prediction, new_prediction = generate(method, model, image, target, device)
         if new_image is None:
             continue
         eval(patient[0], i.item(), output_file, image[0], target[0], new_image, prediction, new_prediction)
 
 
+def get_args() -> argparse.Namespace:
+    """
+    Defines arguments.
+
+    Returns:
+        Namespace with call arguments
+    """
+    parser = argparse.ArgumentParser(description="evaluation")
+    # pylint: disable=duplicate-code
+    parser.add_argument(
+        "--method",
+        "-m",
+        type=str,
+        default="RegularizedChangeGenerator",
+        help="Name of the method to evaluate",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    main()
+    method = get_args()['method']
+
+    main(method)
