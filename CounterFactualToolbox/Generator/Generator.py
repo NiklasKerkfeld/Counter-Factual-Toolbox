@@ -6,6 +6,7 @@ from typing import Tuple, List, Literal, Optional
 
 import numpy as np
 import torch
+from skimage import measure
 from torch import nn
 import torch.nn.functional as F
 
@@ -160,6 +161,12 @@ class Generator(nn.Module):
         self._save_images(original_flair=image[1], adapted_flair=new_image[1], norm=self.flair_norm)
         self._save_images(original_target=target[0], original_prediction=original_prediction, adapted_prediction=deformed_prediction)
 
+        self._plot_on_image(image[0], target, name='target_on_t1w')
+        self._plot_on_image(image[0], original_prediction[None], name='original_prediction_on_t1w')
+        self._plot_on_image(image[0], deformed_prediction[None], name='deformed_prediction_on_t1w')
+
+        self._plot_improvement(image[0], target[0], original_prediction, deformed_prediction)
+
         # plot overview
         self._plot_overview(image, target, new_image, original_prediction, deformed_prediction)
         self._create_gif_of_adaption(image[0], new_image[0], self.t1w_norm, 't1w')
@@ -184,6 +191,7 @@ class Generator(nn.Module):
             deformed_prediction = F.softmax(deformed_prediction, dim=1)[0, 1].cpu()
         result = (f"Loss {original_loss} --> {deformed_loss}\n"
                   f"Adaption cost: {cost}\n"
+                  f"Difference between images: {(self.image - new_image).abs().sum()}\n"
                   f"IoU: {original_iou} --> {deformed_iou}")
         print(result)
         with open(f"FCD_Usecase/results/{self.name}/results.txt", "x") as f:
@@ -216,6 +224,52 @@ class Generator(nn.Module):
         plt.savefig(f"FCD_Usecase/results/{self.name}/overview.png", dpi=750)
         plt.close()
         print(f"Overview of the results saved to FCD_Usecase/results/{self.name}/overview.png")
+
+    def _plot_on_image(self, image: torch.Tensor, mask: torch.Tensor, name='prediction'):
+        plt.imshow(image, cmap='gray', norm=self.t1w_norm)
+        plt.imshow(
+            np.concatenate((mask, np.zeros_like(mask), np.zeros_like(mask), mask > .1),
+                           axis=0).astype(float).transpose(1, 2, 0), alpha=0.3)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(f"FCD_Usecase/results/{self.name}/{name}.png", dpi=750, bbox_inches='tight')
+        plt.close()
+
+    def _plot_improvement(self, image: np.ndarray, target: np.ndarray, original: np.ndarray, deformed: np.ndarray):
+        """
+        Plots the outlines of target, original, and deformed masks over an image.
+
+        Parameters:
+        - image: (C, H, W) tensor, assumed to be in [0, 1] or [0, 255] range
+        - target, original, deformed: (H, W) boolean tensors
+        """
+        # Prepare figure
+        fig, ax = plt.subplots(figsize=(8, 8))
+
+        # Show image
+        ax.imshow(image, cmap='gray')
+
+        # Function to plot outlines
+        def plot_outline(mask, color, label):
+            contours = measure.find_contours(mask.astype(float), 0.5)
+            for contour in contours:
+                ax.plot(contour[:, 1], contour[:, 0], linewidth=1, color=color, label=label)
+                label = None  # Only label first line to avoid duplicates in legend
+
+        # Plot each mask outline
+        plot_outline(target, 'green', 'Target')
+        plot_outline(original, 'blue', 'Original')
+        plot_outline(deformed, 'red', 'Deformed')
+
+        # Final touches
+        ax.set_axis_off()
+        ax.legend(loc='upper right')
+        plt.tight_layout()
+        plt.savefig(f"FCD_Usecase/results/{self.name}/improvement.png", dpi=750, bbox_inches='tight')
+        plt.close()
+
+        print(f"Improvement plotend and saved to FCD_Usecase/results/{self.name}/improvement.png")
+
 
     def _plot_visualization(self, new_image: torch.Tensor):
         plt.subplot(3, 3, 1)
@@ -332,7 +386,7 @@ class Generator(nn.Module):
         plt.ylabel('loss')
         plt.legend()
         plt.title('Loss over generation process')
-        plt.savefig(f"FCD_Usecase/results/{self.name}/loss_curve.png", dpi=750)
+        plt.savefig(f"FCD_Usecase/results/{self.name}/loss_curve.png", dpi=750, bbox_inches='tight')
         plt.close()  # Close the figure to free memory
 
         print(f"Plot with loss and cost curves of the results saved to FCD_Usecase/results/{self.name}/loss_curve.png")
