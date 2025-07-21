@@ -76,27 +76,26 @@ def generate(method: str, model: nn.Module, image: torch.Tensor, target: torch.T
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     elif method == 'SmoothChangeGenerator':
-        generator = SmoothChangeGenerator(model, image, target, kernel_size=9, sigma=2.0)
+        generator = SmoothChangeGenerator(model, image, target, kernel_size=9, sigma=2.0).to(device)
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     elif method == 'DeformationGenerator':
-        generator = DeformationGenerator(model, image, target)
+        generator = DeformationGenerator(model, image, target).to(device)
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     elif method == 'AdversarialGenerator':
-        generator = AdversarialGenerator(model, image, target)
+        generator = AdversarialGenerator(model, image, target).to(device)
         generator.load_adversarial("23_test_denoiser")
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     elif method == 'DetectionAdversarialGenerator':
-        generator = DetectionAdversarialGenerator(model, image, target)
+        generator = DetectionAdversarialGenerator(model, image, target).to(device)
         generator.load_adversarial("23_test_denoiser")
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     else:
         raise ValueError(f"{method} not found!")
 
-    generator.to(device)
     generator.generate(optimizer, 100, verbose=True)
 
     new_image, _ = generator.adapt()
