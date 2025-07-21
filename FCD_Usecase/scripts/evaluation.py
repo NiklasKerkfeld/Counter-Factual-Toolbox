@@ -72,7 +72,7 @@ def generate(method: str, model: nn.Module, image: torch.Tensor, target: torch.T
         return None, None, None
 
     if method == 'RegularizedChangeGenerator':
-        generator = RegularizedChangeGenerator(model, image, target, alpha=5, omega=10)
+        generator = RegularizedChangeGenerator(model, image, target, alpha=5, omega=10).to(device)
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     elif method == 'SmoothChangeGenerator':
