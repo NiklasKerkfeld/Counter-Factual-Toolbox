@@ -116,8 +116,8 @@ def eval(name: str,
 
     iou_before = intersection_over_union(prediction, target)
     iou_after = intersection_over_union(new_prediction, target)
-    f1_before = f1_score(prediction, target)
-    f1_after = f1_score(new_prediction, target)
+    f1_before, tp_b, fp_b, fn_b, tn_b = f1_score(prediction, target)
+    f1_after, tp_a, fp_a, fn_a, tn_a = f1_score(new_prediction, target)
     pred_size = torch.sum(prediction).item()
     new_pred_size = torch.sum(new_prediction).item()
     target_size = torch.sum(target).item()
@@ -142,7 +142,15 @@ def eval(name: str,
                 "pred_size",
                 "new_pred_size",
                 "target_size",
-                "change"
+                "change",
+                "tp_before",
+                "fp_before",
+                "tn_before",
+                "fn_before",
+                "tp_after",
+                "fp_after",
+                "tn_after",
+                "fn_after"
             ])
 
         # Write the data row
@@ -156,7 +164,15 @@ def eval(name: str,
             pred_size,
             new_pred_size,
             target_size,
-            change
+            change,
+            tp_b,
+            fp_b,
+            tn_b,
+            fn_b,
+            tp_a,
+            fp_a,
+            tn_a,
+            fn_a
         ])
 
 

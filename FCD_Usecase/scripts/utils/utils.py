@@ -64,7 +64,7 @@ def intersection_over_union(pred: torch.Tensor, target: torch.Tensor) -> float:
 
     return (2 * intersection).item() / (torch.sum(pred) + torch.sum(target) + 1e-6).item()
 
-def f1_score(pred: torch.Tensor, target: torch.Tensor) -> float:
+def f1_score(pred: torch.Tensor, target: torch.Tensor) -> Tuple[float, int, int, int, int]:
     pred = pred.flatten().int()
     target = target.flatten().int()
 
@@ -72,19 +72,20 @@ def f1_score(pred: torch.Tensor, target: torch.Tensor) -> float:
     tp = (pred & target).sum().item()
     fp = (pred & (1 - target)).sum().item()
     fn = ((1 - pred) & target).sum().item()
+    tn = ((1 - pred) & (1 - target)).sum().item()
 
     # Avoid division by zero
     if tp + fp == 0 or tp + fn == 0:
-        return 0.0
+        return 0.0, tp, fp, fn, tn
 
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
 
     if precision + recall == 0:
-        return 0.0
+        return 0.0, tp, fp, fn, tn
 
     f1 = 2 * (precision * recall) / (precision + recall)
-    return f1
+    return f1, tp, fp, fn, tn
 
 
 def get_max_slice(target: torch.Tensor, dim: int) -> Tuple[int, int]:
