@@ -44,6 +44,7 @@ class AdversarialGenerator(ChangeGenerator):
                                      spatial_dims=2,
                                      features=(64, 128, 256, 512, 1024, 128))
         self.adversarial.eval()
+        self.adversarial.to(image.device)
 
         with torch.no_grad():
             init_pred: torch.Tensor = self.adversarial(image)
@@ -65,7 +66,7 @@ class AdversarialGenerator(ChangeGenerator):
 
     def load_adversarial(self, name='adversarial'):
         self.adversarial.load_state_dict(
-            torch.load(f"FCD_Usecase/models/{name}.pth", map_location=self.parameter.device))
+            torch.load(f"models/{name}.pth", map_location=self.parameter.device))
 
     def log_and_visualize(self,
                           method: Literal['GradCAM', 'GradCAMPlusPlus'] = 'GradCAM'):
@@ -106,6 +107,6 @@ class AdversarialGenerator(ChangeGenerator):
         plt.imshow(change[1], cmap='bwr', norm=self.flair_change_norm)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f"FCD_Usecase/results/{self.name}/AdversarialPrediction.png", dpi=750)
+        plt.savefig(f"FCD_Usecase/results/{self.name}/AdversarialPrediction.png", dpi=750, bbox_inches='tight')
         plt.close()
         print(f"Adversarial prediction saved to FCD_Usecase/results/{self.name}/AdversarialPrediction.png")
