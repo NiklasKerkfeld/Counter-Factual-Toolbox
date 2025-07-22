@@ -4,6 +4,7 @@ import glob
 import os
 import time
 
+import matplotlib.pyplot as plt
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -14,7 +15,7 @@ from CounterFactualToolbox.Generator import (SmoothChangeGenerator,
                                              RegularizedChangeGenerator,
                                              AdversarialGenerator,
                                              DetectionAdversarialGenerator)
-from FCD_Usecase.scripts.utils.utils import get_network, load_image, intersection_over_union
+from FCD_Usecase.scripts.utils.utils import get_network, load_image, intersection_over_union, f1_score
 
 exceptions = ['sub-00002',
               'sub-00074',
@@ -115,6 +116,8 @@ def eval(name: str,
 
     iou_before = intersection_over_union(prediction, target)
     iou_after = intersection_over_union(new_prediction, target)
+    f1_before = f1_score(prediction, target)
+    f1_after = f1_score(new_prediction, target)
     pred_size = torch.sum(prediction).item()
     new_pred_size = torch.sum(new_prediction).item()
     target_size = torch.sum(target).item()
@@ -130,9 +133,15 @@ def eval(name: str,
         # Write header if the file is new
         if not file_exists:
             writer.writerow([
-                "name", "slice",
-                "iou_before", "iou_after",
-                "pred_size", "new_pred_size", "target_size",
+                "name",
+                "slice",
+                "iou_before",
+                "iou_after",
+                "f1_before",
+                "f1_after",
+                "pred_size",
+                "new_pred_size",
+                "target_size",
                 "change"
             ])
 
@@ -142,11 +151,17 @@ def eval(name: str,
             slice,
             iou_before,
             iou_after,
+            f1_before,
+            f1_after,
             pred_size,
             new_pred_size,
             target_size,
             change
         ])
+        if slice == 106:
+            plt.imshow(image[0])
+            plt.axis('off')
+            plt.savefig("test_image.png", dpi=750)
 
 
 def main(method: str):

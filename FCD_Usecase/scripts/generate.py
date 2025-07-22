@@ -3,7 +3,7 @@ import glob
 import torch
 
 from FCD_Usecase.scripts.utils.utils import get_network, get_image
-from CounterFactualToolbox.Generator import SmoothChangeGenerator
+from CounterFactualToolbox.Generator import SmoothChangeGenerator, RegularizedChangeGenerator, DeformationGenerator, AdversarialGenerator
 
 
 def main():
@@ -11,19 +11,19 @@ def main():
     print(f"Using device: {device}")
 
     model = get_network(configuration='2d', fold=0)
-    image, target = get_image('FCD_Usecase/data/Dataset101_fcd/sub-00003', 2)
+    image, target = get_image('data/Dataset101_fcd/sub-00001', 2, 106)
 
-    # generator = ElasticDeformation(model, image, target)
-    # optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
+    generator = DeformationGenerator(model, image, target)
+    optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
 
-    generator = SmoothChangeGenerator(model, image, target, alpha=1.0, kernel_size=9, sigma=2)
-    optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
-
-    # generator = RegularizedChangeGenerator(model, image, target, alpha=1.0, beta=1.0)
+    # generator = SmoothChangeGenerator(model, image, target, alpha=1.0, kernel_size=9, sigma=2)
     # optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
-    # generator = AdversarialGenerator(model, image, target, alpha=1.0)
-    # generator.load_adversarial("23_test_adversarial")
+    # generator = RegularizedChangeGenerator(model, image, target, alpha=5.0, omega=10)
+    # optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
+
+    # generator = AdversarialGenerator(model, image, target, alpha=100.0)
+    # generator.load_adversarial("23_test_denoiser")
     # optimizer = torch.optim.Adam([generator.parameter], lr=1e-3)
 
     # generator = DetectionAdversarialGenerator(model, image, target, alpha=1.0)
