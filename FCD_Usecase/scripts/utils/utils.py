@@ -75,7 +75,7 @@ def f1_score(pred: torch.Tensor, target: torch.Tensor) -> float:
 
     # Avoid division by zero
     if tp + fp == 0 or tp + fn == 0:
-        return 1.0
+        return 0.0
 
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
