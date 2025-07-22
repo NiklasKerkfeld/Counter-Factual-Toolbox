@@ -14,7 +14,7 @@ class MaskedCrossEntropyLoss(nn.Module):
 
         loss_map = F.cross_entropy(input, target, reduction='none')
 
-        return torch.sum(loss_map * mask) / mask.sum()
+        return torch.sum(loss_map * mask) / (mask.sum() + 1e-9)
 
 
 class DistanceLoss(nn.Module):
