@@ -81,7 +81,7 @@ def generate(method: str, model: nn.Module, image: torch.Tensor, target: torch.T
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     elif method == 'DeformationGenerator':
-        generator = DeformationGenerator(model, image, target, alpha=.1).to(device)
+        generator = DeformationGenerator(model, image, target).to(device)
         optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-2)
 
     elif method == 'AdversarialGenerator':
@@ -158,10 +158,6 @@ def eval(name: str,
             target_size,
             change
         ])
-        if slice == 106:
-            plt.imshow(image[0])
-            plt.axis('off')
-            plt.savefig("test_image.png", dpi=750)
 
 
 def main(method: str):
