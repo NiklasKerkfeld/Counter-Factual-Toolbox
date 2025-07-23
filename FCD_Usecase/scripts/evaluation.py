@@ -81,7 +81,7 @@ def generate(method: str, model: nn.Module, image: torch.Tensor, target: torch.T
         optimizer = torch.optim.Adam([generator.parameter], lr=1e-2)
 
     elif method == 'DeformationGenerator':
-        generator = DeformationGenerator(model, image, target).to(device)
+        generator = DeformationGenerator(model, image, target, alpha=.1, parameter_grid_shape=(40, 64)).to(device)
         optimizer = torch.optim.Adam([generator.dx, generator.dy], lr=1e-1)
 
     elif method == 'AdversarialGenerator':
