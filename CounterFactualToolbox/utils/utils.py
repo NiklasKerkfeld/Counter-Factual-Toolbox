@@ -4,17 +4,14 @@ import torch
 
 
 def intersection_over_union(pred: torch.Tensor, target: torch.Tensor) -> float:
-    pred = pred.flatten()
-    target = target.flatten()
+    pred = pred.flatten().bool()
+    target = target.flatten().bool()
 
     intersection = torch.sum(torch.logical_and(pred, target))
     union = torch.sum(torch.logical_or(pred, target))
 
-    if intersection == 0 and union == 0:
-        return 1.0
-
     if union == 0:
-        return 0.0
+        return 1.0
 
     return intersection.item() / union.item()
 
