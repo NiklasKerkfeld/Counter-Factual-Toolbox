@@ -52,18 +52,6 @@ def get_network(configuration: str, fold: int = 0):
 
     return net
 
-
-def intersection_over_union(pred: torch.Tensor, target: torch.Tensor) -> float:
-    pred = pred.flatten()
-    target = target.flatten()
-
-    if pred.sum() == 0.0 and target.sum() == 0.0:
-        return 1.0
-
-    intersection = torch.sum(torch.logical_and(pred, target))
-
-    return (2 * intersection).item() / (torch.sum(pred) + torch.sum(target) + 1e-6).item()
-
 def f1_score(pred: torch.Tensor, target: torch.Tensor) -> Tuple[float, int, int, int, int]:
     pred = pred.flatten().int()
     target = target.flatten().int()

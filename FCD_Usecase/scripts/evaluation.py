@@ -4,7 +4,6 @@ import glob
 import os
 import time
 
-import matplotlib.pyplot as plt
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -15,7 +14,8 @@ from CounterFactualToolbox.Generator import (SmoothChangeGenerator,
                                              RegularizedChangeGenerator,
                                              AdversarialGenerator,
                                              DetectionAdversarialGenerator)
-from FCD_Usecase.scripts.utils.utils import get_network, load_image, intersection_over_union, f1_score
+from CounterFactualToolbox.utils.utils import intersection_over_union
+from FCD_Usecase.scripts.utils.utils import get_network, load_image, f1_score
 
 exceptions = ['sub-00002',
               'sub-00074',

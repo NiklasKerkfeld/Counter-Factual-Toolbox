@@ -13,8 +13,9 @@ from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
 from tqdm import tqdm
 
+from CounterFactualToolbox.utils.utils import intersection_over_union
 from FCD_Usecase.scripts.Trainer.Dataset2D import Dataset2D
-from FCD_Usecase.scripts.utils.utils import normalize, intersection_over_union
+from FCD_Usecase.scripts.utils.utils import normalize
 
 EXAMPLE = 444
 
@@ -106,7 +107,7 @@ class Trainer:
                 loss = self.loss_fn(pred, target)
 
             pred = F.softmax(pred, dim=1)
-            iou_lst.append(intersection_over_union(torch.argmax(pred, dim=1), target).cpu().item())
+            iou_lst.append(intersection_over_union(torch.argmax(pred, dim=1), target))
             loss_lst.append(loss.detach().cpu().item())
             bar.set_description(f"validation loss: {loss.item():.8f}")
 

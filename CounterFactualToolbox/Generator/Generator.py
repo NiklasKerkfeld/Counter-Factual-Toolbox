@@ -257,6 +257,8 @@ class Generator(nn.Module):
                 label = None  # Only label first line to avoid duplicates in legend
 
         # Plot each mask outline
+        print(f"{original.max()}")
+        print(f"{deformed.max()}")
         plot_outline(target, 'green', 'Target')
         plot_outline(original, 'blue', 'Original')
         plot_outline(deformed, 'red', 'Deformed')

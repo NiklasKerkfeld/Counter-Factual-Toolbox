@@ -33,7 +33,7 @@ class SmoothChangeGenerator(ChangeGenerator):
             name: name to use for save files
             loss: loss function to optimize
             alpha: weight of the adaption cost in comparison to the prediction loss
-            previous: List of parameters from previous runs to keep distance from
+            previous: List of parameters from previous runs to keep distance from (B, C, W, H)
             beta: weight for the distance to previous
             width: width parameter for the Distance loss (only relevant if previous parameter
             are provided)
